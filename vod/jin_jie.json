@@ -2,7 +2,7 @@
   {
     "name": "[禁] jiejie",
     "version": 2,
-    "webSite": "https://wap.jiejiesp19.xyz",
+    "webSite": "https://wap.jiejiesp19.xyz/jiejie",
     "instance": "jiejiesp",
     "order": "E",
     "api": "https://raw.githubusercontent.com/kking966/uz_player/refs/heads/main/vod/jin_jie.js",
