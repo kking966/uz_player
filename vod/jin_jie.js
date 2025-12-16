@@ -1,7 +1,7 @@
 class jiejieClass extends WebApiBase {
     constructor() {
         super();
-        this.webSite = 'https://wap.jiejiesp19.xyz/jiejie';  // ← 当前最新主地址（必要！）
+        this.webSite = 'https://wap.jiejiesp19.xyz/jiejie';  // ← 最新主地址（2025年12月可用）
         this.headers = {
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
             'Referer': 'https://wap.jiejiesp19.xyz/jiejie/',
@@ -18,7 +18,7 @@ class jiejieClass extends WebApiBase {
             let cls = [
                 ['293', '姐姐资源'],
                 ['86', '奥斯卡资源'],
-                ['248', '155资源'],     // 你之前代码漏了这个
+                ['248', '155资源'],
                 ['117', '森林资源'],
                 ['337', '玉兔资源']
             ];
@@ -47,7 +47,7 @@ class jiejieClass extends WebApiBase {
             backData.error = pro.error;
             if (pro.data) {
                 let doc = parse(pro.data);
-                let items = doc.querySelectorAll('ul.stui-vodlist li, .stui-vodlist__box'); // 兼容两种结构
+                let items = doc.querySelectorAll('ul.stui-vodlist li, .stui-vodlist__box');
                 let videos = [];
                 for (let el of items) {
                     let a = el.querySelector('h4 a, .title a');
@@ -68,7 +68,7 @@ class jiejieClass extends WebApiBase {
         return JSON.stringify(backData);
     }
 
-    /* ================= 详情 + 多线路播放（最稳定） ================= */
+    /* ================= 详情 + 多线路播放 ================= */
     async getVideoDetail(args) {
         let backData = new RepVideoDetail();
         try {
@@ -83,7 +83,6 @@ class jiejieClass extends WebApiBase {
                 det.vod_pic = 'https:' + (doc.querySelector('.stui-content__thumb img, img.lazyload')?.getAttribute('data-original') || doc.querySelector('.stui-content__thumb img')?.getAttribute('src') || '');
                 det.vod_content = doc.querySelector('.stui-content__desc, .desc')?.text?.trim() || '姐姐视频资源';
 
-                // 解析多线路多集（当前站点主流方式）
                 let playFrom = [];
                 let playUrl = [];
                 let headers = doc.querySelectorAll('.stui-content__playlist h4, .playlist h4');
@@ -104,7 +103,6 @@ class jiejieClass extends WebApiBase {
                     }
                 }
 
-                // 备用：如果没解析到线路，直接用详情页（UZ会嗅探iframe/video）
                 if (playFrom.length === 0) {
                     playFrom.push('姐姐视频');
                     playUrl.push(`正片$${url}`);
