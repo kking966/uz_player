@@ -11,7 +11,6 @@ class jiejieClass extends WebApiBase {
         }
     }
 
-    /* ================= 分类 ================= */
     async getClassList(args) {
         let backData = new RepVideoClassList()
         try {
@@ -33,7 +32,6 @@ class jiejieClass extends WebApiBase {
         return JSON.stringify(backData)
     }
 
-    /* ================= 分类列表 ================= */
     async getVideoList(args) {
         let backData = new RepVideoList()
         try {
@@ -62,7 +60,6 @@ class jiejieClass extends WebApiBase {
         return JSON.stringify(backData)
     }
 
-    /* ================= 详情 ================= */
     async getVideoDetail(args) {
         let backData = new RepVideoDetail()
         try {
@@ -79,12 +76,10 @@ class jiejieClass extends WebApiBase {
                 det.vod_pic =
                     doc.querySelector('.stui-content__thumb img')?.getAttribute('src') || ''
 
-                // 从详情页 URL 提取 vodId
                 let vodId = url.match(/id\/(\d+)/)?.[1] || ''
 
-                det.vod_play_from = 'jiejie'
-                // ❗关键：不加 #，不拼多集
-                det.vod_play_url = `正片$${vodId}`
+                det.vod_play_from = '姐姐视频'
+                det.vod_play_url = `正片$${vodId}`   // ✅ 去掉 #
 
                 backData.data = det
             }
@@ -94,19 +89,18 @@ class jiejieClass extends WebApiBase {
         return JSON.stringify(backData)
     }
 
-    /* ================= 播放（直接返回播放页，嗅探） ================= */
     async getVideoPlayUrl(args) {
         let backData = new RepVideoPlayUrl()
         try {
             let vodId = args.url
-            backData.data = `${this.webSite}/jiejie/index.php/vod/play/id/${vodId}/sid/1/nid/1.html`
+            backData.data =
+                `${this.webSite}/jiejie/index.php/vod/play/id/${vodId}/sid/1/nid/1.html`
         } catch (e) {
             backData.error = e.message
         }
         return JSON.stringify(backData)
     }
 
-    /* ================= 搜索 ================= */
     async searchVideo(args) {
         let backData = new RepVideoList()
         try {
@@ -136,7 +130,6 @@ class jiejieClass extends WebApiBase {
         return JSON.stringify(backData)
     }
 
-    /* ================= 工具 ================= */
     combineUrl(url) {
         if (!url) return ''
         if (url.startsWith('http')) return url
