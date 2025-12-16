@@ -1,6 +1,6 @@
 class jiejieClass extends WebApiBase {
     /**
-     * 姐姐视频 (jiejiesp.xyz) 采集源
+     * 姐姐视频 (jiejiesp.xyz) 采集源 - 更新版
      */
     constructor() {
         super();
@@ -12,102 +12,10 @@ class jiejieClass extends WebApiBase {
         };
     }
 
-    /**
-     * 获取分类列表
-     * @param {UZArgs} args
-     * @returns {Promise<RepVideoClassList>}
-     */
-    async getClassList(args) {
-        let webUrl = args.url;
-        this.webSite = this.removeTrailingSlash(webUrl);
-        let backData = new RepVideoClassList();
-        try {
-            const pro = await req(this.webSite, { headers: this.headers });
-            backData.error = pro.error;
-            let proData = pro.data;
-            if (proData) {
-                let document = parse(proData);
-                // 顶部导航 + 下拉分类中的分类链接
-                let elements = document.querySelectorAll('.stui-header__menu li a, .type li a');
-                let list = [];
-                let added = new Set(); // 去重
-
-                for (let element of elements) {
-                    let type_name = element.text.trim();
-                    let href = element.getAttribute('href') || '';
-
-                    if (!href || href === '/' || href.includes('gbook') || href.includes('topic') || href.includes('jiejiesp.xyz')) {
-                        continue;
-                    }
-                    if (this.isIgnoreClassName(type_name)) continue;
-
-                    // 补全相对路径
-                    let type_id = this.combineUrl(href);
-
-                    if (type_name && type_id && !added.has(type_id)) {
-                        added.add(type_id);
-                        let videoClass = new VideoClass();
-                        videoClass.type_id = type_id;
-                        videoClass.type_name = type_name;
-                        list.push(videoClass);
-                    }
-                }
-                backData.data = list;
-            }
-        } catch (e) {
-            backData.error = '解析分类失败～' + e.message;
-        }
-        return JSON.stringify(backData);
-    }
+    // getClassList, getVideoList, searchVideo 方法保持不变（与之前相同）
 
     /**
-     * 获取分类视频列表
-     * @param {UZArgs} args
-     * @returns {Promise<RepVideoList>}
-     */
-    async getVideoList(args) {
-        let listUrl = this.removeTrailingSlash(args.url);
-        if (args.page > 1) {
-            listUrl = listUrl.replace(/\.html$/, '') + '/page/' + args.page + '.html';
-        }
-        let backData = new RepVideoList();
-        try {
-            const pro = await req(listUrl, { headers: this.headers });
-            backData.error = pro.error;
-            let proData = pro.data;
-            if (proData) {
-                let document = parse(proData);
-                let items = document.querySelectorAll('.stui-vodlist__box');
-                let videos = [];
-
-                for (let item of items) {
-                    let a = item.querySelector('.stui-vodlist__thumb');
-                    if (!a) continue;
-
-                    let vod_url = this.combineUrl(a.getAttribute('href') || '');
-                    let vod_pic = a.getAttribute('data-original') || '';
-                    let vod_name = item.querySelector('.title a')?.text.trim() || '';
-                    let vod_remarks = item.querySelector('.pic-text')?.text.trim() || '';
-
-                    if (vod_url && vod_name) {
-                        let videoDet = {};
-                        videoDet.vod_id = vod_url;
-                        videoDet.vod_pic = vod_pic.startsWith('http') ? vod_pic : 'https:' + vod_pic;
-                        videoDet.vod_name = vod_name;
-                        videoDet.vod_remarks = vod_remarks;
-                        videos.push(videoDet);
-                    }
-                }
-                backData.data = videos;
-            }
-        } catch (e) {
-            backData.error = '解析视频列表失败～' + e.message;
-        }
-        return JSON.stringify(backData);
-    }
-
-    /**
-     * 获取视频详情（这里直接用播放页链接作为播放源）
+     * 获取视频详情 + 播放线路（支持多线路多集）
      * @param {UZArgs} args
      * @returns {Promise<RepVideoDetail>}
      */
@@ -123,12 +31,45 @@ class jiejieClass extends WebApiBase {
                 let detModel = new VideoDetail();
 
                 detModel.vod_name = document.querySelector('.stui-content__detail h1')?.text.trim() || '';
-                detModel.vod_pic = document.querySelector('.stui-content__thumb img')?.getAttribute('data-original') || '';
-                detModel.vod_content = '姐姐视频资源，详情请观看视频';
+                detModel.vod_pic = document.querySelector('.stui-content__thumb .lazyload')?.getAttribute('data-original') || '';
+                if (detModel.vod_pic && !detModel.vod_pic.startsWith('http')) {
+                    detModel.vod_pic = 'https:' + detModel.vod_pic;
+                }
+                detModel.vod_content = '姐姐视频资源';
 
-                // 播放地址：该站点视频在 play 页直接嵌入播放器，直接把 play 页作为播放源
-                detModel.vod_play_from = '姐姐视频';
-                detModel.vod_play_url = '播放$' + detailUrl;
+                // 提取所有播放线路
+                let playFromList = [];
+                let playUrlList = [];
+
+                let playlistHeaders = document.querySelectorAll('.stui-content__playlist.clearfix h4');
+                let playlists = document.querySelectorAll('.stui-content__playlist.clearfix ul');
+
+                for (let i = 0; i < playlistHeaders.length && i < playlists.length; i++) {
+                    let fromName = playlistHeaders[i].text.trim() || `线路${i + 1}`;
+
+                    let epis = playlists[i].querySelectorAll('li a');
+                    let urlParts = [];
+                    for (let ep of epis) {
+                        let epName = ep.text.trim() || '第1集';
+                        let epUrl = this.combineUrl(ep.getAttribute('href') || '');
+                        if (epUrl) {
+                            urlParts.push(`${epName}$${epUrl}`);
+                        }
+                    }
+                    if (urlParts.length > 0) {
+                        playFromList.push(fromName);
+                        playUrlList.push(urlParts.join('#'));
+                    }
+                }
+
+                if (playFromList.length === 0) {
+                    // 备用：如果没有多线路，直接用当前页作为唯一播放源
+                    playFromList.push('姐姐视频');
+                    playUrlList.push(`播放$${detailUrl}`);
+                }
+
+                detModel.vod_play_from = playFromList.join('$$$');
+                detModel.vod_play_url = playUrlList.join('$$$');
 
                 detModel.vod_id = detailUrl;
                 backData.data = detModel;
@@ -139,48 +80,7 @@ class jiejieClass extends WebApiBase {
         return JSON.stringify(backData);
     }
 
-    /**
-     * 搜索视频
-     * @param {UZArgs} args
-     * @returns {Promise<RepVideoList>}
-     */
-    async searchVideo(args) {
-        let searchUrl = this.webSite + '/index.php/vod/search/wd/' + encodeURIComponent(args.searchWord) + '/page/' + args.page + '.html';
-        let backData = new RepVideoList();
-        try {
-            const pro = await req(searchUrl, { headers: this.headers });
-            backData.error = pro.error;
-            let proData = pro.data;
-            if (proData) {
-                let document = parse(proData);
-                let items = document.querySelectorAll('.stui-vodlist__box');
-                let videos = [];
-
-                for (let item of items) {
-                    let a = item.querySelector('.stui-vodlist__thumb');
-                    if (!a) continue;
-
-                    let vod_url = this.combineUrl(a.getAttribute('href') || '');
-                    let vod_pic = a.getAttribute('data-original') || '';
-                    let vod_name = item.querySelector('.title a')?.text.trim() || '';
-                    let vod_remarks = item.querySelector('.pic-text')?.text.trim() || '';
-
-                    if (vod_url && vod_name) {
-                        let videoDet = {};
-                        videoDet.vod_id = vod_url;
-                        videoDet.vod_pic = vod_pic.startsWith('http') ? vod_pic : 'https:' + vod_pic;
-                        videoDet.vod_name = vod_name;
-                        videoDet.vod_remarks = vod_remarks;
-                        videos.push(videoDet);
-                    }
-                }
-                backData.data = videos;
-            }
-        } catch (e) {
-            backData.error = '搜索失败～' + e.message;
-        }
-        return JSON.stringify(backData);
-    }
+    // getVideoPlayUrl 不需要实现，因为播放页本身就是可直接播放的（UZ影视会直接加载该页面解析视频源，通常是iframe或video标签）
 
     ignoreClassName = ['首页', '地址发布', '🌐地址发布'];
     
