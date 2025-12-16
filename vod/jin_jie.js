@@ -1,24 +1,99 @@
 class jiejieClass extends WebApiBase {
     /**
-     * 姐姐视频 (jiejiesp.xyz) 采集源 - 更新版
+     * 姐姐视频 采集源 - 更新至最新域名
      */
     constructor() {
         super();
-        this.url = 'https://jiejiesp.xyz/jiejie';
+        this.url = 'https://wap.jiejiesp19.xyz/jiejie';  // ← 这里改为最新域名
         this.headers = {
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36',
-            'Referer': 'https://jiejiesp.xyz/jiejie/',
+            'Referer': 'https://wap.jiejiesp19.xyz/jiejie/',
             'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
         };
     }
 
-    // getClassList, getVideoList, searchVideo 方法保持不变（与之前相同）
+    async getClassList(args) {
+        let webUrl = args.url;
+        this.webSite = this.removeTrailingSlash(webUrl);
+        let backData = new RepVideoClassList();
+        try {
+            const pro = await req(this.webSite, { headers: this.headers });
+            backData.error = pro.error;
+            let proData = pro.data;
+            if (proData) {
+                let document = parse(proData);
+                let elements = document.querySelectorAll('.stui-header__menu li a, .type li a');
+                let list = [];
+                let added = new Set();
 
-    /**
-     * 获取视频详情 + 播放线路（支持多线路多集）
-     * @param {UZArgs} args
-     * @returns {Promise<RepVideoDetail>}
-     */
+                for (let element of elements) {
+                    let type_name = element.text.trim();
+                    let href = element.getAttribute('href') || '';
+
+                    if (!href || href === '/' || href.includes('gbook') || href.includes('topic') || href.includes('jiejiesp.xyz')) {
+                        continue;
+                    }
+                    if (this.isIgnoreClassName(type_name)) continue;
+
+                    let type_id = this.combineUrl(href);
+
+                    if (type_name && type_id && !added.has(type_id)) {
+                        added.add(type_id);
+                        let videoClass = new VideoClass();
+                        videoClass.type_id = type_id;
+                        videoClass.type_name = type_name;
+                        list.push(videoClass);
+                    }
+                }
+                backData.data = list;
+            }
+        } catch (e) {
+            backData.error = '解析分类失败～' + e.message;
+        }
+        return JSON.stringify(backData);
+    }
+
+    async getVideoList(args) {
+        let listUrl = this.removeTrailingSlash(args.url);
+        if (args.page > 1) {
+            listUrl = listUrl.replace(/\.html$/, '') + '/page/' + args.page + '.html';
+        }
+        let backData = new RepVideoList();
+        try {
+            const pro = await req(listUrl, { headers: this.headers });
+            backData.error = pro.error;
+            let proData = pro.data;
+            if (proData) {
+                let document = parse(proData);
+                let items = document.querySelectorAll('.stui-vodlist__box');
+                let videos = [];
+
+                for (let item of items) {
+                    let a = item.querySelector('.stui-vodlist__thumb');
+                    if (!a) continue;
+
+                    let vod_url = this.combineUrl(a.getAttribute('href') || '');
+                    let vod_pic = a.getAttribute('data-original') || '';
+                    let vod_name = item.querySelector('.title a')?.text.trim() || '';
+                    let vod_remarks = item.querySelector('.pic-text')?.text.trim() || '';
+
+                    if (vod_url && vod_name) {
+                        let videoDet = {};
+                        videoDet.vod_id = vod_url;
+                        videoDet.vod_pic = vod_pic.startsWith('http') ? vod_pic : 'https:' + vod_pic;
+                        videoDet.vod_name = vod_name;
+                        videoDet.vod_remarks = vod_remarks;
+                        videos.push(videoDet);
+                    }
+                }
+                backData.data = videos;
+            }
+        } catch (e) {
+            backData.error = '解析视频列表失败～' + e.message;
+        }
+        return JSON.stringify(backData);
+    }
+
     async getVideoDetail(args) {
         let detailUrl = args.url;
         let backData = new RepVideoDetail();
@@ -37,7 +112,6 @@ class jiejieClass extends WebApiBase {
                 }
                 detModel.vod_content = '姐姐视频资源';
 
-                // 提取所有播放线路
                 let playFromList = [];
                 let playUrlList = [];
 
@@ -63,7 +137,6 @@ class jiejieClass extends WebApiBase {
                 }
 
                 if (playFromList.length === 0) {
-                    // 备用：如果没有多线路，直接用当前页作为唯一播放源
                     playFromList.push('姐姐视频');
                     playUrlList.push(`播放$${detailUrl}`);
                 }
@@ -80,7 +153,43 @@ class jiejieClass extends WebApiBase {
         return JSON.stringify(backData);
     }
 
-    // getVideoPlayUrl 不需要实现，因为播放页本身就是可直接播放的（UZ影视会直接加载该页面解析视频源，通常是iframe或video标签）
+    async searchVideo(args) {
+        let searchUrl = this.webSite + '/index.php/vod/search/wd/' + encodeURIComponent(args.searchWord) + '/page/' + args.page + '.html';
+        let backData = new RepVideoList();
+        try {
+            const pro = await req(searchUrl, { headers: this.headers });
+            backData.error = pro.error;
+            let proData = pro.data;
+            if (proData) {
+                let document = parse(proData);
+                let items = document.querySelectorAll('.stui-vodlist__box');
+                let videos = [];
+
+                for (let item of items) {
+                    let a = item.querySelector('.stui-vodlist__thumb');
+                    if (!a) continue;
+
+                    let vod_url = this.combineUrl(a.getAttribute('href') || '');
+                    let vod_pic = a.getAttribute('data-original') || '';
+                    let vod_name = item.querySelector('.title a')?.text.trim() || '';
+                    let vod_remarks = item.querySelector('.pic-text')?.text.trim() || '';
+
+                    if (vod_url && vod_name) {
+                        let videoDet = {};
+                        videoDet.vod_id = vod_url;
+                        videoDet.vod_pic = vod_pic.startsWith('http') ? vod_pic : 'https:' + vod_pic;
+                        videoDet.vod_name = vod_name;
+                        videoDet.vod_remarks = vod_remarks;
+                        videos.push(videoDet);
+                    }
+                }
+                backData.data = videos;
+            }
+        } catch (e) {
+            backData.error = '搜索失败～' + e.message;
+        }
+        return JSON.stringify(backData);
+    }
 
     ignoreClassName = ['首页', '地址发布', '🌐地址发布'];
     
@@ -100,4 +209,4 @@ class jiejieClass extends WebApiBase {
     }
 }
 
-var jiejiesp20251216 = new jiejieClass();
+var jiejiesp = new jiejieClass();
