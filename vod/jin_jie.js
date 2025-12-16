@@ -200,4 +200,4 @@ class jiejieClass extends WebApiBase {
     }
 }
 
-var jiejiesp2025 = new jiejieClass();
+var jiejie2025 = new jiejieClass();
