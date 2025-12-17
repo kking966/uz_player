@@ -14,20 +14,18 @@ class jiejieClass extends WebApiBase {
     async getClassList() {
         let backData = new RepVideoClassList()
         try {
-            let list = []
             let cls = [
                 ['293', '姐姐资源'],
                 ['86', '奥斯卡资源'],
                 ['117', '森林资源'],
                 ['337', '玉兔资源']
             ]
-            for (let c of cls) {
-                let vc = new VideoClass()
-                vc.type_id = c[0]
-                vc.type_name = c[1]
-                list.push(vc)
-            }
-            backData.data = list
+            backData.data = cls.map(c => {
+                let v = new VideoClass()
+                v.type_id = c[0]
+                v.type_name = c[1]
+                return v
+            })
         } catch (e) {
             backData.error = e.message
         }
@@ -39,23 +37,15 @@ class jiejieClass extends WebApiBase {
         try {
             let page = args.page || 1
             let url = `${this.webSite}/jiejie/index.php/vod/type/id/${args.url}/page/${page}.html`
-            let res = await req(url, { headers: this.headers })
-            let doc = parse(res.data)
+            let html = (await req(url, { headers: this.headers })).data
+            let doc = parse(html)
             let items = doc.querySelectorAll('ul.stui-vodlist li')
-            let videos = []
-
-            for (let el of items) {
-                let a = el.querySelector('h4.title a')
-                let thumb = el.querySelector('a.stui-vodlist__thumb')
-                if (!a || !thumb) continue
-                videos.push({
-                    vod_id: this.combineUrl(a.getAttribute('href')),
-                    vod_name: a.text.trim(),
-                    vod_pic: thumb.getAttribute('data-original') || '',
-                    vod_remarks: el.querySelector('span.pic-text')?.text?.trim() || ''
-                })
-            }
-            backData.data = videos
+            backData.data = [...items].map(el => ({
+                vod_id: this.combineUrl(el.querySelector('h4 a')?.getAttribute('href')),
+                vod_name: el.querySelector('h4 a')?.text?.trim(),
+                vod_pic: el.querySelector('.stui-vodlist__thumb')?.getAttribute('data-original') || '',
+                vod_remarks: el.querySelector('.pic-text')?.text?.trim() || ''
+            })).filter(v => v.vod_id)
         } catch (e) {
             backData.error = e.message
         }
@@ -65,16 +55,14 @@ class jiejieClass extends WebApiBase {
     async getVideoDetail(args) {
         let backData = new RepVideoDetail()
         try {
-            let url = args.url
-            let res = await req(url, { headers: this.headers })
-            let doc = parse(res.data)
-
-            let vodId = url.match(/id\/(\d+)/)?.[1] ?? ''
+            let vodId = args.url.match(/id\/(\d+)/)?.[1]
+            let html = (await req(args.url, { headers: this.headers })).data
+            let doc = parse(html)
 
             let det = new VideoDetail()
-            det.vod_id = url
-            det.vod_name = doc.querySelector('h1.title')?.text?.trim() || ''
-            det.vod_content = doc.querySelector('.stui-content__desc')?.text?.trim() || ''
+            det.vod_id = args.url
+            det.vod_name = doc.querySelector('h1.title')?.text?.trim()
+            det.vod_content = doc.querySelector('.stui-content__desc')?.text?.trim()
             det.vod_pic =
                 doc.querySelector('.stui-content__thumb img')?.getAttribute('data-original') ||
                 doc.querySelector('.stui-content__thumb img')?.getAttribute('src') ||
@@ -91,30 +79,36 @@ class jiejieClass extends WebApiBase {
         return JSON.stringify(backData)
     }
 
-    // ✅ 终极播放解析（不 JSON.parse）
+    // ⭐⭐ 真正可播放的关键函数
     async getVideoPlayUrl(args) {
         let backData = new RepVideoPlayUrl()
         try {
-            let res = await req(args.url, { headers: this.headers })
-            let html = res.data.toString()
+            let playHtml = (await req(args.url, { headers: this.headers })).data.toString()
 
-            // 直接抓 url
-            let urlMatch = html.match(/"url"\s*:\s*"([^"]+)"/)
-            if (!urlMatch) throw new Error('play url not found')
+            // 1️⃣ 抓 player_data.url
+            let urlMatch = playHtml.match(/"url"\s*:\s*"([^"]+)"/)
+            let encMatch = playHtml.match(/"encrypt"\s*:\s*(\d+)/)
+            if (!urlMatch) throw new Error('param url not found')
 
-            let playUrl = urlMatch[1]
-
-            // 抓 encrypt
-            let encMatch = html.match(/"encrypt"\s*:\s*(\d+)/)
+            let paramUrl = urlMatch[1]
             let encrypt = encMatch ? parseInt(encMatch[1]) : 0
 
-            if (encrypt === 1) {
-                playUrl = atob(playUrl)
-            } else if (encrypt === 2) {
-                playUrl = decodeURIComponent(escape(atob(playUrl)))
-            }
+            if (encrypt === 1) paramUrl = atob(paramUrl)
+            if (encrypt === 2) paramUrl = decodeURIComponent(escape(atob(paramUrl)))
 
-            backData.data = playUrl
+            // 2️⃣ 请求播放器接口（关键）
+            let apiUrl = `${this.webSite}/jiejie/player/player.php?url=${encodeURIComponent(paramUrl)}`
+            let apiRes = await req(apiUrl, {
+                headers: { ...this.headers, Referer: args.url }
+            })
+
+            let apiHtml = apiRes.data.toString()
+
+            // 3️⃣ 抓真正 m3u8
+            let realMatch = apiHtml.match(/(https?:\/\/[^"' ]+\.m3u8[^"' ]*)/)
+            if (!realMatch) throw new Error('real m3u8 not found')
+
+            backData.data = realMatch[1]
         } catch (e) {
             backData.error = e.message
         }
@@ -128,23 +122,15 @@ class jiejieClass extends WebApiBase {
             let url = `${this.webSite}/jiejie/index.php/vod/search/wd/${encodeURIComponent(
                 args.searchWord
             )}/page/${page}.html`
-            let res = await req(url, { headers: this.headers })
-            let doc = parse(res.data)
+            let html = (await req(url, { headers: this.headers })).data
+            let doc = parse(html)
             let items = doc.querySelectorAll('ul.stui-vodlist li')
-            let videos = []
-
-            for (let el of items) {
-                let a = el.querySelector('h4.title a')
-                let thumb = el.querySelector('a.stui-vodlist__thumb')
-                if (!a || !thumb) continue
-                videos.push({
-                    vod_id: this.combineUrl(a.getAttribute('href')),
-                    vod_name: a.text.trim(),
-                    vod_pic: thumb.getAttribute('data-original') || '',
-                    vod_remarks: el.querySelector('span.pic-text')?.text?.trim() || ''
-                })
-            }
-            backData.data = videos
+            backData.data = [...items].map(el => ({
+                vod_id: this.combineUrl(el.querySelector('h4 a')?.getAttribute('href')),
+                vod_name: el.querySelector('h4 a')?.text?.trim(),
+                vod_pic: el.querySelector('.stui-vodlist__thumb')?.getAttribute('data-original') || '',
+                vod_remarks: el.querySelector('.pic-text')?.text?.trim() || ''
+            })).filter(v => v.vod_id)
         } catch (e) {
             backData.error = e.message
         }
@@ -154,8 +140,7 @@ class jiejieClass extends WebApiBase {
     combineUrl(url) {
         if (!url) return ''
         if (url.startsWith('http')) return url
-        if (url.startsWith('/')) return this.webSite + url
-        return this.webSite + '/' + url
+        return this.webSite + (url.startsWith('/') ? url : '/' + url)
     }
 }
 
