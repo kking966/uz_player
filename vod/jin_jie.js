@@ -138,10 +138,7 @@ async getVideoPlayUrl(args) {
                     url: playUrl
                 }
             ],
-            headers: {
-                'User-Agent': kUA.mobile,
-                'Referer': this.webSite
-            }
+            headers: this.headers
         }
     } catch (e) {
         backData.error = e.message
