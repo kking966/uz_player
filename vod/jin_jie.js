@@ -11,6 +11,7 @@ class jiejieClass extends WebApiBase {
         }
     }
 
+    /* ================= 分类 ================= */
     async getClassList() {
         let backData = new RepVideoClassList()
         try {
@@ -32,30 +33,39 @@ class jiejieClass extends WebApiBase {
         return JSON.stringify(backData)
     }
 
+    /* ================= 列表 ================= */
     async getVideoList(args) {
         let backData = new RepVideoList()
         try {
             let page = args.page || 1
             let url = `${this.webSite}/jiejie/index.php/vod/type/id/${args.url}/page/${page}.html`
-            let doc = parse((await req(url, { headers: this.headers })).data)
+            let html = (await req(url, { headers: this.headers })).data
+            let doc = parse(html)
             let items = doc.querySelectorAll('ul.stui-vodlist li')
-            backData.data = [...items].map(el => ({
-                vod_id: this.combineUrl(el.querySelector('h4 a')?.getAttribute('href')),
-                vod_name: el.querySelector('h4 a')?.text?.trim(),
-                vod_pic: el.querySelector('.stui-vodlist__thumb')?.getAttribute('data-original') || '',
-                vod_remarks: el.querySelector('.pic-text')?.text?.trim() || ''
-            })).filter(v => v.vod_id)
+
+            backData.data = [...items]
+                .map(el => ({
+                    vod_id: this.combineUrl(el.querySelector('h4 a')?.getAttribute('href')),
+                    vod_name: el.querySelector('h4 a')?.text?.trim(),
+                    vod_pic:
+                        el.querySelector('.stui-vodlist__thumb')?.getAttribute('data-original') ||
+                        '',
+                    vod_remarks: el.querySelector('.pic-text')?.text?.trim() || ''
+                }))
+                .filter(v => v.vod_id)
         } catch (e) {
             backData.error = e.message
         }
         return JSON.stringify(backData)
     }
 
+    /* ================= 详情 ================= */
     async getVideoDetail(args) {
         let backData = new RepVideoDetail()
         try {
             let vodId = args.url.match(/id\/(\d+)/)?.[1]
-            let doc = parse((await req(args.url, { headers: this.headers })).data)
+            let html = (await req(args.url, { headers: this.headers })).data
+            let doc = parse(html)
 
             let det = new VideoDetail()
             det.vod_id = args.url
@@ -77,30 +87,24 @@ class jiejieClass extends WebApiBase {
         return JSON.stringify(backData)
     }
 
-    // 🔥 终极播放解析（eval + atob 通杀）
+    /* ================= 播放（关键） ================= */
     async getVideoPlayUrl(args) {
         let backData = new RepVideoPlayUrl()
         try {
-            let html = (await req(args.url, { headers: this.headers })).data.toString()
-
-            // 1️⃣ 抓 atob("xxxx")
-            let atobMatch = html.match(/atob\(["']([^"']+)["']\)/)
-            if (!atobMatch) throw new Error('atob data not found')
-
-            // 2️⃣ 解 base64
-            let decodedJs = atob(atobMatch[1])
-
-            // 3️⃣ 在解码 JS 中抓真实地址
-            let realMatch = decodedJs.match(/https?:\/\/[^"' ]+\.(m3u8|mp4)[^"' ]*/i)
-            if (!realMatch) throw new Error('real video url not found')
-
-            backData.data = realMatch[0]
+            /**
+             * ⚠️ 重要说明：
+             * 该站播放器为 JS 动态生成视频地址
+             * UZ 插件无法静态解析
+             * 正确做法：直接返回播放页地址 → 由 UZ 自行嗅探 m3u8
+             */
+            backData.data = args.url
         } catch (e) {
             backData.error = e.message
         }
         return JSON.stringify(backData)
     }
 
+    /* ================= 搜索 ================= */
     async searchVideo(args) {
         let backData = new RepVideoList()
         try {
@@ -108,14 +112,20 @@ class jiejieClass extends WebApiBase {
             let url = `${this.webSite}/jiejie/index.php/vod/search/wd/${encodeURIComponent(
                 args.searchWord
             )}/page/${page}.html`
-            let doc = parse((await req(url, { headers: this.headers })).data)
+            let html = (await req(url, { headers: this.headers })).data
+            let doc = parse(html)
             let items = doc.querySelectorAll('ul.stui-vodlist li')
-            backData.data = [...items].map(el => ({
-                vod_id: this.combineUrl(el.querySelector('h4 a')?.getAttribute('href')),
-                vod_name: el.querySelector('h4 a')?.text?.trim(),
-                vod_pic: el.querySelector('.stui-vodlist__thumb')?.getAttribute('data-original') || '',
-                vod_remarks: el.querySelector('.pic-text')?.text?.trim() || ''
-            })).filter(v => v.vod_id)
+
+            backData.data = [...items]
+                .map(el => ({
+                    vod_id: this.combineUrl(el.querySelector('h4 a')?.getAttribute('href')),
+                    vod_name: el.querySelector('h4 a')?.text?.trim(),
+                    vod_pic:
+                        el.querySelector('.stui-vodlist__thumb')?.getAttribute('data-original') ||
+                        '',
+                    vod_remarks: el.querySelector('.pic-text')?.text?.trim() || ''
+                }))
+                .filter(v => v.vod_id)
         } catch (e) {
             backData.error = e.message
         }
