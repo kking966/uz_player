@@ -100,19 +100,38 @@ class jiejieClass extends WebApiBase {
         return JSON.stringify(backData)
     }
 
-    // ✅ 核心修复：播放页无 iframe，直接解析 player_data
+    // ⭐ MacCMS 通杀播放解析
     async getVideoPlayUrl(args) {
         let backData = new RepVideoPlayUrl()
         try {
             let playPageUrl = args.url
-            let pageRes = await req(playPageUrl, { headers: this.headers })
-            let html = pageRes.data.toString()
+            let res = await req(playPageUrl, { headers: this.headers })
+            let html = res.data.toString()
 
-            let match = html.match(/player_data\s*=\s*(\{[\s\S]*?\})/)
-            if (!match) throw new Error('player_data not found')
+            let jsonText = null
 
-            let data = JSON.parse(match[1])
-            let playUrl = data.url
+            // 1️⃣ player_data
+            let m1 = html.match(/player_data\s*=\s*(\{[\s\S]*?\})/)
+            if (m1) jsonText = m1[1]
+
+            // 2️⃣ MacPlayerConfig
+            if (!jsonText) {
+                let m2 = html.match(/MacPlayerConfig\s*=\s*(\{[\s\S]*?\})/)
+                if (m2) jsonText = m2[1]
+            }
+
+            // 3️⃣ MacPlayer
+            if (!jsonText) {
+                let m3 = html.match(/MacPlayer\s*=\s*(\{[\s\S]*?\})/)
+                if (m3) jsonText = m3[1]
+            }
+
+            if (!jsonText) throw new Error('play config not found')
+
+            let data = JSON.parse(jsonText)
+            let playUrl = data.url || data.play_url
+
+            if (!playUrl) throw new Error('play url empty')
 
             if (data.encrypt === 1) {
                 playUrl = atob(playUrl)
