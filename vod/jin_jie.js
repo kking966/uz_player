@@ -79,36 +79,27 @@ class jiejieClass extends WebApiBase {
         return JSON.stringify(backData)
     }
 
-    // ⭐⭐ 真正可播放的关键函数
+    // ✅ 最终确认：真实 m3u8 就在 player_data.url
     async getVideoPlayUrl(args) {
         let backData = new RepVideoPlayUrl()
         try {
-            let playHtml = (await req(args.url, { headers: this.headers })).data.toString()
+            let html = (await req(args.url, { headers: this.headers })).data.toString()
 
-            // 1️⃣ 抓 player_data.url
-            let urlMatch = playHtml.match(/"url"\s*:\s*"([^"]+)"/)
-            let encMatch = playHtml.match(/"encrypt"\s*:\s*(\d+)/)
-            if (!urlMatch) throw new Error('param url not found')
+            let urlMatch = html.match(/"url"\s*:\s*"([^"]+)"/)
+            if (!urlMatch) throw new Error('play url not found')
 
-            let paramUrl = urlMatch[1]
+            let playUrl = urlMatch[1]
+
+            let encMatch = html.match(/"encrypt"\s*:\s*(\d+)/)
             let encrypt = encMatch ? parseInt(encMatch[1]) : 0
 
-            if (encrypt === 1) paramUrl = atob(paramUrl)
-            if (encrypt === 2) paramUrl = decodeURIComponent(escape(atob(paramUrl)))
+            if (encrypt === 1) {
+                playUrl = atob(playUrl)
+            } else if (encrypt === 2) {
+                playUrl = decodeURIComponent(escape(atob(playUrl)))
+            }
 
-            // 2️⃣ 请求播放器接口（关键）
-            let apiUrl = `${this.webSite}/jiejie/player/player.php?url=${encodeURIComponent(paramUrl)}`
-            let apiRes = await req(apiUrl, {
-                headers: { ...this.headers, Referer: args.url }
-            })
-
-            let apiHtml = apiRes.data.toString()
-
-            // 3️⃣ 抓真正 m3u8
-            let realMatch = apiHtml.match(/(https?:\/\/[^"' ]+\.m3u8[^"' ]*)/)
-            if (!realMatch) throw new Error('real m3u8 not found')
-
-            backData.data = realMatch[1]
+            backData.data = playUrl
         } catch (e) {
             backData.error = e.message
         }
