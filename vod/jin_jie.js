@@ -1,11 +1,12 @@
 class jiejieClass extends WebApiBase {
     constructor() {
         super()
-        this.webSite = 'https://jiejiesp.xyz'
+        // 必须使用 wap 域名
+        this.webSite = 'https://wap.jiejiesp19.xyz'
         this.headers = {
             'User-Agent':
-                'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-            'Referer': 'https://jiejiesp.xyz/',
+                'Mozilla/5.0 (Linux; Android 10) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36',
+            'Referer': 'https://wap.jiejiesp19.xyz/',
             'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
             'Accept-Language': 'zh-CN,zh;q=0.9'
         }
@@ -89,12 +90,18 @@ class jiejieClass extends WebApiBase {
                 det.vod_pic =
                     doc
                         .querySelector('.stui-content__thumb img')
-                        ?.getAttribute('src') || ''
+                        ?.getAttribute('data-original') ||
+                    doc
+                        .querySelector('.stui-content__thumb img')
+                        ?.getAttribute('src') ||
+                    ''
 
                 let vodId = url.match(/id\/(\d+)/)?.[1] ?? ''
 
+                // 关键：这里直接给“完整播放页 URL”
                 det.vod_play_from = '姐姐视频'
-                det.vod_play_url = `正片$${vodId}#`
+                det.vod_play_url =
+                    `正片$${this.webSite}/jiejie/index.php/vod/play/id/${vodId}/sid/1/nid/1.html#`
 
                 backData.data = det
             }
@@ -104,47 +111,54 @@ class jiejieClass extends WebApiBase {
         return JSON.stringify(backData)
     }
 
-async getVideoPlayUrl(args) {
-    let backData = new RepVideoPlayUrl()
-    try {
-        let vodId = args.url
-        let api = `${this.webSite}/jiejie/index.php/vod/playdata/id/${vodId}/sid/1/nid/1.html`
-        let pro = await req(api, { headers: this.headers })
-        backData.error = pro.error
+    /* ================= 播放 ================= */
+    async getVideoPlayUrl(args) {
+        let backData = new RepVideoPlayUrl()
+        try {
+            // args.url 现在一定是“播放页 URL”
+            let playPageUrl = args.url
+            let playUrl = ''
 
-        let playUrl = ''
+            // 尝试 playdata
+            let vodId = playPageUrl.match(/id\/(\d+)/)?.[1] ?? ''
+            if (vodId) {
+                let api = `${this.webSite}/jiejie/index.php/vod/playdata/id/${vodId}/sid/1/nid/1.html`
+                let pro = await req(api, { headers: this.headers })
 
-        if (pro.data) {
-            let text = pro.data.toString().trim()
+                if (pro.data) {
+                    let text = pro.data.toString().trim()
+                    if (!text.startsWith('<')) {
+                        let data = JSON.parse(text)
+                        playUrl = data.url || ''
 
-            if (!text.startsWith('<')) {
-                let data = JSON.parse(text)
-                playUrl = data.url || ''
-                if (data.encrypt === 1) {
-                    playUrl = atob(playUrl)
+                        if (data.encrypt === 1) {
+                            playUrl = atob(playUrl)
+                        } else if (data.encrypt === 2) {
+                            playUrl = decodeURIComponent(escape(atob(playUrl)))
+                        }
+                    }
                 }
             }
-        }
 
-        // playdata 失败 → 回退播放页
-        if (!playUrl) {
-            playUrl = `${this.webSite}/jiejie/index.php/vod/play/id/${vodId}/sid/1/nid/1.html`
-        }
+            // playdata 失败 → 回退播放页（uz 会自动嗅探 iframe/m3u8）
+            if (!playUrl) {
+                playUrl = playPageUrl
+            }
 
-        backData.data = {
-            urls: [
-                {
-                    name: '默认线路',
-                    url: playUrl
-                }
-            ],
-            headers: this.headers
+            backData.data = {
+                urls: [
+                    {
+                        name: '默认线路',
+                        url: playUrl
+                    }
+                ],
+                headers: this.headers
+            }
+        } catch (e) {
+            backData.error = e.message
         }
-    } catch (e) {
-        backData.error = e.message
+        return JSON.stringify(backData)
     }
-    return JSON.stringify(backData)
-}
 
     /* ================= 搜索 ================= */
     async searchVideo(args) {
@@ -192,4 +206,5 @@ async getVideoPlayUrl(args) {
     }
 }
 
+// 实例名必须和 index.json 里的 instance 一致
 var jiejie2025 = new jiejieClass()
