@@ -100,30 +100,18 @@ class jiejieClass extends WebApiBase {
         return JSON.stringify(backData)
     }
 
+    // ✅ 核心修复：播放页无 iframe，直接解析 player_data
     async getVideoPlayUrl(args) {
         let backData = new RepVideoPlayUrl()
         try {
             let playPageUrl = args.url
-
             let pageRes = await req(playPageUrl, { headers: this.headers })
             let html = pageRes.data.toString()
 
-            let iframe = html.match(/<iframe[^>]+src=["']([^"']+)["']/i)
-            if (!iframe) throw new Error('iframe not found')
+            let match = html.match(/player_data\s*=\s*(\{[\s\S]*?\})/)
+            if (!match) throw new Error('player_data not found')
 
-            let iframeUrl = iframe[1].startsWith('http')
-                ? iframe[1]
-                : this.webSite + iframe[1]
-
-            let iframeRes = await req(iframeUrl, {
-                headers: { ...this.headers, Referer: playPageUrl }
-            })
-
-            let iframeHtml = iframeRes.data.toString()
-            let m = iframeHtml.match(/player_data\s*=\s*(\{[\s\S]*?\})/)
-            if (!m) throw new Error('player_data not found')
-
-            let data = JSON.parse(m[1])
+            let data = JSON.parse(match[1])
             let playUrl = data.url
 
             if (data.encrypt === 1) {
