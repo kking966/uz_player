@@ -37,8 +37,7 @@ class jiejieClass extends WebApiBase {
         try {
             let page = args.page || 1
             let url = `${this.webSite}/jiejie/index.php/vod/type/id/${args.url}/page/${page}.html`
-            let html = (await req(url, { headers: this.headers })).data
-            let doc = parse(html)
+            let doc = parse((await req(url, { headers: this.headers })).data)
             let items = doc.querySelectorAll('ul.stui-vodlist li')
             backData.data = [...items].map(el => ({
                 vod_id: this.combineUrl(el.querySelector('h4 a')?.getAttribute('href')),
@@ -56,8 +55,7 @@ class jiejieClass extends WebApiBase {
         let backData = new RepVideoDetail()
         try {
             let vodId = args.url.match(/id\/(\d+)/)?.[1]
-            let html = (await req(args.url, { headers: this.headers })).data
-            let doc = parse(html)
+            let doc = parse((await req(args.url, { headers: this.headers })).data)
 
             let det = new VideoDetail()
             det.vod_id = args.url
@@ -79,27 +77,24 @@ class jiejieClass extends WebApiBase {
         return JSON.stringify(backData)
     }
 
-    // ✅ 最终确认：真实 m3u8 就在 player_data.url
+    // 🔥 终极播放解析（eval + atob 通杀）
     async getVideoPlayUrl(args) {
         let backData = new RepVideoPlayUrl()
         try {
             let html = (await req(args.url, { headers: this.headers })).data.toString()
 
-            let urlMatch = html.match(/"url"\s*:\s*"([^"]+)"/)
-            if (!urlMatch) throw new Error('play url not found')
+            // 1️⃣ 抓 atob("xxxx")
+            let atobMatch = html.match(/atob\(["']([^"']+)["']\)/)
+            if (!atobMatch) throw new Error('atob data not found')
 
-            let playUrl = urlMatch[1]
+            // 2️⃣ 解 base64
+            let decodedJs = atob(atobMatch[1])
 
-            let encMatch = html.match(/"encrypt"\s*:\s*(\d+)/)
-            let encrypt = encMatch ? parseInt(encMatch[1]) : 0
+            // 3️⃣ 在解码 JS 中抓真实地址
+            let realMatch = decodedJs.match(/https?:\/\/[^"' ]+\.(m3u8|mp4)[^"' ]*/i)
+            if (!realMatch) throw new Error('real video url not found')
 
-            if (encrypt === 1) {
-                playUrl = atob(playUrl)
-            } else if (encrypt === 2) {
-                playUrl = decodeURIComponent(escape(atob(playUrl)))
-            }
-
-            backData.data = playUrl
+            backData.data = realMatch[0]
         } catch (e) {
             backData.error = e.message
         }
@@ -113,8 +108,7 @@ class jiejieClass extends WebApiBase {
             let url = `${this.webSite}/jiejie/index.php/vod/search/wd/${encodeURIComponent(
                 args.searchWord
             )}/page/${page}.html`
-            let html = (await req(url, { headers: this.headers })).data
-            let doc = parse(html)
+            let doc = parse((await req(url, { headers: this.headers })).data)
             let items = doc.querySelectorAll('ul.stui-vodlist li')
             backData.data = [...items].map(el => ({
                 vod_id: this.combineUrl(el.querySelector('h4 a')?.getAttribute('href')),
