@@ -1,115 +1,171 @@
-class jiejieClass extends WebApiBase {
-    constructor() {
-        super()
-        this.webSite = 'https://wap.jiejiesp19.xyz/jiejie'
-        this.headers = {
-            'User-Agent':
-                'Mozilla/5.0 (Linux; Android 10) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36',
-            'Referer': this.webSite,
-            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-            'Accept-Language': 'zh-CN,zh;q=0.9'
+// ignore
+//@name:JiejieSP-视频源
+//@webSite:https://wap.jiejiesp19.xyz/jiejie/
+//@version:1
+//@remark:姐姐视频 MacCMS 源
+//@isAV:0
+// ignore
+
+class JiejieVideo101 extends WebApiBase {
+  constructor() {
+    super();
+    this.base = 'https://wap.jiejiesp19.xyz';
+    this.site = 'JiejieSP';
+  }
+
+  // ========== 分类 ==========
+  async getClassList() {
+    const html = await req(this.base + '/jiejie/', { headers: { 'User-Agent': kUA.mobile } });
+    const $ = cheerio.load(html);
+    const data = [];
+
+    $('.dropdown.type a').each((i, el) => {
+      const name = $(el).text().trim();
+      const href = $(el).attr('href');
+      if (!name || !href) return;
+
+      data.push({
+        className: name,
+        classId: href.startsWith('http') ? href : this.base + href,
+        hasSubclass: false
+      });
+    });
+
+    return { code: 0, msg: 'ok', data };
+  }
+
+  // ========== 分类列表 ==========
+  async getVideoList(params) {
+    const { classId, page = 1 } = params;
+    let url = classId;
+    if (page > 1) {
+      url = classId.replace('.html', `/page/${page}.html`);
+    }
+
+    const html = await req(url, { headers: { 'User-Agent': kUA.mobile } });
+    const $ = cheerio.load(html);
+    const data = [];
+
+    $('.stui-vodlist li').each((i, el) => {
+      const a = $(el).find('a').first();
+      const title = a.attr('title');
+      const href = a.attr('href');
+      const pic = $(el).find('img').attr('data-original') || $(el).find('img').attr('src');
+
+      if (!href) return;
+
+      data.push({
+        vod_id: href.startsWith('http') ? href : this.base + href,
+        vod_name: title,
+        vod_pic: pic ? (pic.startsWith('http') ? pic : this.base + pic) : '',
+        vod_remarks: ''
+      });
+    });
+
+    return { code: 0, msg: 'ok', page, pagecount: 999, limit: data.length, total: 0, data };
+  }
+
+  // ========== 详情页 ==========
+  async getVideoDetail(params) {
+    const { id } = params;
+    const html = await req(id, { headers: { 'User-Agent': kUA.mobile } });
+    const $ = cheerio.load(html);
+
+    const vod_name = $('h1').first().text().trim();
+    const vod_pic = $('.stui-content__thumb img').attr('data-original') || '';
+    const vod_content = $('.stui-content__desc').text().trim();
+
+    const playFrom = [];
+    const playUrls = [];
+
+    $('.stui-pannel__head h3').each((i, el) => {
+      playFrom.push($(el).text().trim() || `线路${i + 1}`);
+      const eps = [];
+
+      $('.stui-content__playlist').eq(i).find('a').each((j, a) => {
+        const name = $(a).text().trim();
+        const href = $(a).attr('href');
+        if (!href) return;
+        eps.push(`${name}$${this.base + href}`);
+      });
+
+      playUrls.push(eps.join('#'));
+    });
+
+    return {
+      code: 0,
+      msg: 'ok',
+      data: [{
+        vod_id: id,
+        vod_name,
+        vod_pic: vod_pic ? (vod_pic.startsWith('http') ? vod_pic : this.base + vod_pic) : '',
+        vod_content,
+        vod_play_from: playFrom.join('$$$'),
+        vod_play_url: playUrls.join('$$$')
+      }]
+    };
+  }
+
+  // ========== 播放 ==========
+  async getVideoPlayUrl(params, args) {
+    const { id } = params;
+    const html = await req(id, { headers: { 'User-Agent': kUA.mobile, Referer: this.base } });
+
+    // iframe
+    const iframe = html.match(/<iframe[^>]+src=["']([^"']+)["']/i);
+    if (iframe) {
+      return {
+        code: 0,
+        msg: 'ok',
+        data: {
+          urls: [{ name: args?.flag || '默认线路', url: iframe[1] }],
+          headers: { Referer: id }
         }
+      };
     }
 
-    /* ================= 分类 ================= */
-    async getClassList(args) {
-        let backData = new RepVideoClassList()
-        try {
-            // WAP 站本身是通过 URL 直接分区，这里手写
-            let cls = [
-                ['1', '最新'],
-                ['88', '国产视频'],
-                ['95', '国产精品'],
-                ['102', '麻豆传媒'],
-                ['146', '日本有码'],
-                ['147', '欧美无码']
-            ]
-            backData.data = cls.map(c => {
-                let vc = new VideoClass()
-                vc.type_id = c[0]
-                vc.type_name = c[1]
-                return vc
-            })
-        } catch (e) {
-            backData.error = e.message
-        }
-        return JSON.stringify(backData)
-    }
+    // player_data
+    const m3u8 = this.findM3U8(html);
+    return {
+      code: 0,
+      msg: 'ok',
+      data: {
+        urls: [{ name: args?.flag || '默认线路', url: m3u8 }],
+        headers: { Referer: id }
+      }
+    };
+  }
 
-    /* ================= 分类列表 ================= */
-    async getVideoList(args) {
-        let backData = new RepVideoList()
-        try {
-            let page = args.page || 1
-            let url =
-                page === 1
-                    ? `${this.webSite}/vod/type/id/${args.url}.html`
-                    : `${this.webSite}/vod/type/id/${args.url}/page/${page}.html`
+  // ========== 搜索 ==========
+  async searchVideo(params) {
+    const { wd = '', page = 1 } = params;
+    const url = `${this.base}/jiejie/index.php/vod/search.html?wd=${encodeURIComponent(wd)}`;
+    const html = await req(url, { headers: { 'User-Agent': kUA.mobile } });
+    const $ = cheerio.load(html);
+    const data = [];
 
-            let pro = await req(url, { headers: this.headers })
-            if (pro.data) {
-                let doc = parse(pro.data)
-                let items = doc.querySelectorAll('ul li')
-                backData.data = [...items].map(el => {
-                    let a = el.querySelector('a')
-                    let img = el.querySelector('img')
-                    if (!a) return null
-                    return {
-                        vod_id: this.combineUrl(a.getAttribute('href')),
-                        vod_name: a.getAttribute('title') || a.text?.trim() || '',
-                        vod_pic: img?.getAttribute('data-original') || img?.getAttribute('src') || '',
-                        vod_remarks: el.querySelector('.pic-text')?.text?.trim() || ''
-                    }
-                }).filter(Boolean)
-            }
-        } catch (e) {
-            backData.error = e.message
-        }
-        return JSON.stringify(backData)
-    }
+    $('.stui-vodlist li').each((i, el) => {
+      const a = $(el).find('a').first();
+      const title = a.attr('title');
+      const href = a.attr('href');
+      const pic = $(el).find('img').attr('data-original');
 
-    /* ================= 详情 ================= */
-    async getVideoDetail(args) {
-        let backData = new RepVideoDetail()
-        try {
-            let pro = await req(args.url, { headers: this.headers })
-            if (pro.data) {
-                let doc = parse(pro.data)
-                let det = new VideoDetail()
-                det.vod_id = args.url
-                det.vod_name = doc.querySelector('h1,h2')?.text?.trim() || ''
-                det.vod_pic = doc.querySelector('img')?.getAttribute('src') || ''
-                det.vod_content = doc.querySelector('.jianjie,.info')?.text?.trim() || ''
+      if (!href) return;
+      data.push({
+        vod_id: this.base + href,
+        vod_name: title,
+        vod_pic: pic ? this.base + pic : '',
+        vod_remarks: ''
+      });
+    });
 
-                // 播放页就是详情页
-                det.vod_play_from = '姐姐视频'
-                det.vod_play_url = `播放$${args.url}`
+    return { code: 0, msg: 'ok', page, pagecount: 999, limit: data.length, total: 0, data };
+  }
 
-                backData.data = det
-            }
-        } catch (e) {
-            backData.error = e.message
-        }
-        return JSON.stringify(backData)
-    }
-
-    /* ================= 播放 ================= */
-    async getVideoPlayUrl(args) {
-        let backData = new RepVideoPlayUrl()
-        try {
-            // 直接返回 WAP 播放页，让壳嗅探
-            backData.data = args.url
-        } catch (e) {
-            backData.error = e.message
-        }
-        return JSON.stringify(backData)
-    }
-
-    combineUrl(url) {
-        if (!url) return ''
-        if (url.startsWith('http')) return url
-        return this.webSite + url
-    }
+  findM3U8(html) {
+    const m = html.match(/(https?:\/\/[^"' ]+\.m3u8)/i);
+    return m ? m[1] : '';
+  }
 }
 
-var jiejie2025 = new jiejieClass()
+const jiejieVideo1 = new JiejieVideo101();
