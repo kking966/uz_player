@@ -1,7 +1,6 @@
 class jiejieClass extends WebApiBase {
     constructor() {
         super()
-        // 必须使用 wap 域名
         this.webSite = 'https://wap.jiejiesp19.xyz'
         this.headers = {
             'User-Agent':
@@ -13,7 +12,7 @@ class jiejieClass extends WebApiBase {
     }
 
     /* ================= 分类 ================= */
-    async getClassList(args) {
+    async getClassList() {
         let backData = new RepVideoClassList()
         try {
             let list = []
@@ -81,24 +80,19 @@ class jiejieClass extends WebApiBase {
 
             if (pro.data) {
                 let doc = parse(pro.data)
-
                 let det = new VideoDetail()
+
                 det.vod_id = url
                 det.vod_name = doc.querySelector('h1.title')?.text?.trim() || ''
                 det.vod_content =
                     doc.querySelector('.stui-content__desc')?.text?.trim() || ''
                 det.vod_pic =
-                    doc
-                        .querySelector('.stui-content__thumb img')
-                        ?.getAttribute('data-original') ||
-                    doc
-                        .querySelector('.stui-content__thumb img')
-                        ?.getAttribute('src') ||
+                    doc.querySelector('.stui-content__thumb img')?.getAttribute('data-original') ||
+                    doc.querySelector('.stui-content__thumb img')?.getAttribute('src') ||
                     ''
 
                 let vodId = url.match(/id\/(\d+)/)?.[1] ?? ''
 
-                // 关键：这里直接给“完整播放页 URL”
                 det.vod_play_from = '姐姐视频'
                 det.vod_play_url =
                     `正片$${this.webSite}/jiejie/index.php/vod/play/id/${vodId}/sid/1/nid/1.html#`
@@ -111,11 +105,10 @@ class jiejieClass extends WebApiBase {
         return JSON.stringify(backData)
     }
 
-    /* ================= 播放 ================= */
+    /* ================= 播放（关键） ================= */
     async getVideoPlayUrl(args) {
         let backData = new RepVideoPlayUrl()
         try {
-            // args.url 现在一定是“播放页 URL”
             let playPageUrl = args.url
             let playUrl = ''
 
@@ -140,20 +133,8 @@ class jiejieClass extends WebApiBase {
                 }
             }
 
-            // playdata 失败 → 回退播放页（uz 会自动嗅探 iframe/m3u8）
-            if (!playUrl) {
-                playUrl = playPageUrl
-            }
-
-            backData.data = {
-                urls: [
-                    {
-                        name: '默认线路',
-                        url: playUrl
-                    }
-                ],
-                headers: this.headers
-            }
+            // 没拿到 m3u8 → 直接给播放页，uz 自动嗅探
+            backData.data = playUrl || playPageUrl
         } catch (e) {
             backData.error = e.message
         }
@@ -206,5 +187,5 @@ class jiejieClass extends WebApiBase {
     }
 }
 
-// 实例名必须和 index.json 里的 instance 一致
+// ⚠️ 必须与 index.json 里的 instance 一致
 var jiejie2025 = new jiejieClass()
