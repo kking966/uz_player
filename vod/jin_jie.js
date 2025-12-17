@@ -11,7 +11,7 @@ class jiejieClass extends WebApiBase {
         }
     }
 
-    /* ================= 分类 ================= */
+    /* 分类 */
     async getClassList() {
         let backData = new RepVideoClassList()
         try {
@@ -33,7 +33,7 @@ class jiejieClass extends WebApiBase {
         return JSON.stringify(backData)
     }
 
-    /* ================= 列表 ================= */
+    /* 列表 */
     async getVideoList(args) {
         let backData = new RepVideoList()
         try {
@@ -59,7 +59,7 @@ class jiejieClass extends WebApiBase {
         return JSON.stringify(backData)
     }
 
-    /* ================= 详情 ================= */
+    /* 详情 */
     async getVideoDetail(args) {
         let backData = new RepVideoDetail()
         try {
@@ -87,24 +87,21 @@ class jiejieClass extends WebApiBase {
         return JSON.stringify(backData)
     }
 
-    /* ================= 播放（关键） ================= */
+    /* 🔥 播放（WebView 嗅探关键） */
     async getVideoPlayUrl(args) {
         let backData = new RepVideoPlayUrl()
         try {
-            /**
-             * ⚠️ 重要说明：
-             * 该站播放器为 JS 动态生成视频地址
-             * UZ 插件无法静态解析
-             * 正确做法：直接返回播放页地址 → 由 UZ 自行嗅探 m3u8
-             */
-            backData.data = args.url
+            backData.data = {
+                url: args.url,
+                parse: 1   // ⭐ 关键：告诉 UZ 用 WebView 嗅探
+            }
         } catch (e) {
             backData.error = e.message
         }
         return JSON.stringify(backData)
     }
 
-    /* ================= 搜索 ================= */
+    /* 搜索 */
     async searchVideo(args) {
         let backData = new RepVideoList()
         try {
