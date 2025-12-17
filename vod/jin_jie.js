@@ -168,4 +168,4 @@ class JiejieVideo101 extends WebApiBase {
   }
 }
 
-const jiejieVideo1 = new JiejieVideo101();
+const jiejieVideo101 = new JiejieVideo101();
