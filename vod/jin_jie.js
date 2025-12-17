@@ -39,28 +39,23 @@ class jiejieClass extends WebApiBase {
         try {
             let page = args.page || 1
             let url = `${this.webSite}/jiejie/index.php/vod/type/id/${args.url}/page/${page}.html`
-            let pro = await req(url, { headers: this.headers })
+            let res = await req(url, { headers: this.headers })
+            let doc = parse(res.data)
+            let items = doc.querySelectorAll('ul.stui-vodlist li')
+            let videos = []
 
-            if (pro.data) {
-                let doc = parse(pro.data)
-                let items = doc.querySelectorAll('ul.stui-vodlist li')
-                let videos = []
-
-                for (let el of items) {
-                    let a = el.querySelector('h4.title a')
-                    let thumb = el.querySelector('a.stui-vodlist__thumb')
-                    if (!a || !thumb) continue
-
-                    videos.push({
-                        vod_id: this.combineUrl(a.getAttribute('href')),
-                        vod_name: a.text.trim(),
-                        vod_pic: thumb.getAttribute('data-original') || '',
-                        vod_remarks:
-                            el.querySelector('span.pic-text')?.text?.trim() || ''
-                    })
-                }
-                backData.data = videos
+            for (let el of items) {
+                let a = el.querySelector('h4.title a')
+                let thumb = el.querySelector('a.stui-vodlist__thumb')
+                if (!a || !thumb) continue
+                videos.push({
+                    vod_id: this.combineUrl(a.getAttribute('href')),
+                    vod_name: a.text.trim(),
+                    vod_pic: thumb.getAttribute('data-original') || '',
+                    vod_remarks: el.querySelector('span.pic-text')?.text?.trim() || ''
+                })
             }
+            backData.data = videos
         } catch (e) {
             backData.error = e.message
         }
@@ -71,71 +66,51 @@ class jiejieClass extends WebApiBase {
         let backData = new RepVideoDetail()
         try {
             let url = args.url
-            let pro = await req(url, { headers: this.headers })
+            let res = await req(url, { headers: this.headers })
+            let doc = parse(res.data)
 
-            if (pro.data) {
-                let doc = parse(pro.data)
-                let det = new VideoDetail()
+            let vodId = url.match(/id\/(\d+)/)?.[1] ?? ''
 
-                det.vod_id = url
-                det.vod_name = doc.querySelector('h1.title')?.text?.trim() || ''
-                det.vod_content =
-                    doc.querySelector('.stui-content__desc')?.text?.trim() || ''
-                det.vod_pic =
-                    doc.querySelector('.stui-content__thumb img')?.getAttribute('data-original') ||
-                    doc.querySelector('.stui-content__thumb img')?.getAttribute('src') ||
-                    ''
+            let det = new VideoDetail()
+            det.vod_id = url
+            det.vod_name = doc.querySelector('h1.title')?.text?.trim() || ''
+            det.vod_content = doc.querySelector('.stui-content__desc')?.text?.trim() || ''
+            det.vod_pic =
+                doc.querySelector('.stui-content__thumb img')?.getAttribute('data-original') ||
+                doc.querySelector('.stui-content__thumb img')?.getAttribute('src') ||
+                ''
 
-                let vodId = url.match(/id\/(\d+)/)?.[1] ?? ''
+            det.vod_play_from = '默认线路'
+            det.vod_play_url =
+                `正片$${this.webSite}/jiejie/index.php/vod/play/id/${vodId}/sid/1/nid/1.html#`
 
-                det.vod_play_from = '默认线路'
-                det.vod_play_url =
-                    `正片$${this.webSite}/jiejie/index.php/vod/play/id/${vodId}/sid/1/nid/1.html#`
-
-                backData.data = det
-            }
+            backData.data = det
         } catch (e) {
             backData.error = e.message
         }
         return JSON.stringify(backData)
     }
 
-    // ⭐ MacCMS 通杀播放解析
+    // ✅ 终极播放解析（不 JSON.parse）
     async getVideoPlayUrl(args) {
         let backData = new RepVideoPlayUrl()
         try {
-            let playPageUrl = args.url
-            let res = await req(playPageUrl, { headers: this.headers })
+            let res = await req(args.url, { headers: this.headers })
             let html = res.data.toString()
 
-            let jsonText = null
+            // 直接抓 url
+            let urlMatch = html.match(/"url"\s*:\s*"([^"]+)"/)
+            if (!urlMatch) throw new Error('play url not found')
 
-            // 1️⃣ player_data
-            let m1 = html.match(/player_data\s*=\s*(\{[\s\S]*?\})/)
-            if (m1) jsonText = m1[1]
+            let playUrl = urlMatch[1]
 
-            // 2️⃣ MacPlayerConfig
-            if (!jsonText) {
-                let m2 = html.match(/MacPlayerConfig\s*=\s*(\{[\s\S]*?\})/)
-                if (m2) jsonText = m2[1]
-            }
+            // 抓 encrypt
+            let encMatch = html.match(/"encrypt"\s*:\s*(\d+)/)
+            let encrypt = encMatch ? parseInt(encMatch[1]) : 0
 
-            // 3️⃣ MacPlayer
-            if (!jsonText) {
-                let m3 = html.match(/MacPlayer\s*=\s*(\{[\s\S]*?\})/)
-                if (m3) jsonText = m3[1]
-            }
-
-            if (!jsonText) throw new Error('play config not found')
-
-            let data = JSON.parse(jsonText)
-            let playUrl = data.url || data.play_url
-
-            if (!playUrl) throw new Error('play url empty')
-
-            if (data.encrypt === 1) {
+            if (encrypt === 1) {
                 playUrl = atob(playUrl)
-            } else if (data.encrypt === 2) {
+            } else if (encrypt === 2) {
                 playUrl = decodeURIComponent(escape(atob(playUrl)))
             }
 
@@ -153,28 +128,23 @@ class jiejieClass extends WebApiBase {
             let url = `${this.webSite}/jiejie/index.php/vod/search/wd/${encodeURIComponent(
                 args.searchWord
             )}/page/${page}.html`
-            let pro = await req(url, { headers: this.headers })
+            let res = await req(url, { headers: this.headers })
+            let doc = parse(res.data)
+            let items = doc.querySelectorAll('ul.stui-vodlist li')
+            let videos = []
 
-            if (pro.data) {
-                let doc = parse(pro.data)
-                let items = doc.querySelectorAll('ul.stui-vodlist li')
-                let videos = []
-
-                for (let el of items) {
-                    let a = el.querySelector('h4.title a')
-                    let thumb = el.querySelector('a.stui-vodlist__thumb')
-                    if (!a || !thumb) continue
-
-                    videos.push({
-                        vod_id: this.combineUrl(a.getAttribute('href')),
-                        vod_name: a.text.trim(),
-                        vod_pic: thumb.getAttribute('data-original') || '',
-                        vod_remarks:
-                            el.querySelector('span.pic-text')?.text?.trim() || ''
-                    })
-                }
-                backData.data = videos
+            for (let el of items) {
+                let a = el.querySelector('h4.title a')
+                let thumb = el.querySelector('a.stui-vodlist__thumb')
+                if (!a || !thumb) continue
+                videos.push({
+                    vod_id: this.combineUrl(a.getAttribute('href')),
+                    vod_name: a.text.trim(),
+                    vod_pic: thumb.getAttribute('data-original') || '',
+                    vod_remarks: el.querySelector('span.pic-text')?.text?.trim() || ''
+                })
             }
+            backData.data = videos
         } catch (e) {
             backData.error = e.message
         }
