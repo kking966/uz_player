@@ -6,12 +6,11 @@ class jiejieClass extends WebApiBase {
             'User-Agent':
                 'Mozilla/5.0 (Linux; Android 10) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36',
             'Referer': 'https://wap.jiejiesp19.xyz/',
-            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+            'Accept': '*/*',
             'Accept-Language': 'zh-CN,zh;q=0.9'
         }
     }
 
-    /* ================= 分类 ================= */
     async getClassList() {
         let backData = new RepVideoClassList()
         try {
@@ -35,14 +34,12 @@ class jiejieClass extends WebApiBase {
         return JSON.stringify(backData)
     }
 
-    /* ================= 分类列表 ================= */
     async getVideoList(args) {
         let backData = new RepVideoList()
         try {
             let page = args.page || 1
             let url = `${this.webSite}/jiejie/index.php/vod/type/id/${args.url}/page/${page}.html`
             let pro = await req(url, { headers: this.headers })
-            backData.error = pro.error
 
             if (pro.data) {
                 let doc = parse(pro.data)
@@ -70,13 +67,11 @@ class jiejieClass extends WebApiBase {
         return JSON.stringify(backData)
     }
 
-    /* ================= 详情 ================= */
     async getVideoDetail(args) {
         let backData = new RepVideoDetail()
         try {
             let url = args.url
             let pro = await req(url, { headers: this.headers })
-            backData.error = pro.error
 
             if (pro.data) {
                 let doc = parse(pro.data)
@@ -93,7 +88,7 @@ class jiejieClass extends WebApiBase {
 
                 let vodId = url.match(/id\/(\d+)/)?.[1] ?? ''
 
-                det.vod_play_from = '姐姐视频'
+                det.vod_play_from = '默认线路'
                 det.vod_play_url =
                     `正片$${this.webSite}/jiejie/index.php/vod/play/id/${vodId}/sid/1/nid/1.html#`
 
@@ -105,43 +100,45 @@ class jiejieClass extends WebApiBase {
         return JSON.stringify(backData)
     }
 
-    /* ================= 播放（关键） ================= */
     async getVideoPlayUrl(args) {
         let backData = new RepVideoPlayUrl()
         try {
             let playPageUrl = args.url
-            let playUrl = ''
 
-            // 尝试 playdata
-            let vodId = playPageUrl.match(/id\/(\d+)/)?.[1] ?? ''
-            if (vodId) {
-                let api = `${this.webSite}/jiejie/index.php/vod/playdata/id/${vodId}/sid/1/nid/1.html`
-                let pro = await req(api, { headers: this.headers })
+            let pageRes = await req(playPageUrl, { headers: this.headers })
+            let html = pageRes.data.toString()
 
-                if (pro.data) {
-                    let text = pro.data.toString().trim()
-                    if (!text.startsWith('<')) {
-                        let data = JSON.parse(text)
-                        playUrl = data.url || ''
+            let iframe = html.match(/<iframe[^>]+src=["']([^"']+)["']/i)
+            if (!iframe) throw new Error('iframe not found')
 
-                        if (data.encrypt === 1) {
-                            playUrl = atob(playUrl)
-                        } else if (data.encrypt === 2) {
-                            playUrl = decodeURIComponent(escape(atob(playUrl)))
-                        }
-                    }
-                }
+            let iframeUrl = iframe[1].startsWith('http')
+                ? iframe[1]
+                : this.webSite + iframe[1]
+
+            let iframeRes = await req(iframeUrl, {
+                headers: { ...this.headers, Referer: playPageUrl }
+            })
+
+            let iframeHtml = iframeRes.data.toString()
+            let m = iframeHtml.match(/player_data\s*=\s*(\{[\s\S]*?\})/)
+            if (!m) throw new Error('player_data not found')
+
+            let data = JSON.parse(m[1])
+            let playUrl = data.url
+
+            if (data.encrypt === 1) {
+                playUrl = atob(playUrl)
+            } else if (data.encrypt === 2) {
+                playUrl = decodeURIComponent(escape(atob(playUrl)))
             }
 
-            // 没拿到 m3u8 → 直接给播放页，uz 自动嗅探
-            backData.data = playUrl || playPageUrl
+            backData.data = playUrl
         } catch (e) {
             backData.error = e.message
         }
         return JSON.stringify(backData)
     }
 
-    /* ================= 搜索 ================= */
     async searchVideo(args) {
         let backData = new RepVideoList()
         try {
@@ -150,7 +147,6 @@ class jiejieClass extends WebApiBase {
                 args.searchWord
             )}/page/${page}.html`
             let pro = await req(url, { headers: this.headers })
-            backData.error = pro.error
 
             if (pro.data) {
                 let doc = parse(pro.data)
@@ -178,7 +174,6 @@ class jiejieClass extends WebApiBase {
         return JSON.stringify(backData)
     }
 
-    /* ================= 工具 ================= */
     combineUrl(url) {
         if (!url) return ''
         if (url.startsWith('http')) return url
@@ -187,5 +182,4 @@ class jiejieClass extends WebApiBase {
     }
 }
 
-// ⚠️ 必须与 index.json 里的 instance 一致
 var jiejie2025 = new jiejieClass()
