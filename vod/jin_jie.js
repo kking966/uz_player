@@ -130,4 +130,4 @@ var gqyszy = {
     }
 };
 
-export default gqyszy;
+export default ces;
