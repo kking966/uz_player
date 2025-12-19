@@ -1,131 +1,133 @@
-class jiejieClass extends WebApiBase {
-    constructor() {
-        super()
-        this.webSite = 'https://wap.jiejiesp19.xyz'
-        this.headers = {
-            'User-Agent':
-                'Mozilla/5.0 (Linux; Android 10) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36',
-            'Referer': this.webSite + '/',
-            'Accept': '*/*',
-            'Accept-Language': 'zh-CN,zh;q=0.9'
+// 高清一手资源 - uzVideo 最终可用版
+var gqyszy = {
+    site: {
+        name: "高清一手资源",
+        host: "https://www.gqyszy.xyz",
+        logo: "https://www.gqyszy.xyz/template/fengmaxiu/images/logo.png",
+        lang: "zh",
+        type: 1
+    },
+
+    // 首页分类
+    home: function () {
+        return {
+            class: [
+                { type_id: "134", type_name: "女同性恋" },
+                { type_id: "133", type_name: "变性伪娘" },
+                { type_id: "132", type_name: "动漫卡通" },
+                { type_id: "130", type_name: "人妻熟女" },
+                { type_id: "129", type_name: "欧美激情" },
+                { type_id: "122", type_name: "中文字幕" },
+                { type_id: "93",  type_name: "高清无码" },
+                { type_id: "105", type_name: "国产主播" }
+            ],
+            filters: {}
+        };
+    },
+
+    // 分类列表
+    category: function (tid, pg) {
+        pg = pg || 1;
+        var url = this.site.host + "/index.php/vod/type/id/" + tid + "/page/" + pg + ".html";
+        var html = req(url);
+
+        var list = [];
+        var reg = /<a href="([^"]+vod\/detail\/id\/\d+\.html)[^"]*">[\s\S]*?<img[^>]+data-original="([^"]+)"[^>]*>[\s\S]*?<h3>([^<]+)<\/h3>/g;
+        var match;
+
+        while ((match = reg.exec(html)) !== null) {
+            list.push({
+                vod_id: match[1],
+                vod_name: match[3].trim(),
+                vod_pic: match[2],
+                vod_remarks: ""
+            });
         }
 
-        // 安全占位图，避免 Flutter 崩溃
-        this.safePic = ''
-    }
+        return {
+            page: pg,
+            pagecount: 999,
+            limit: 20,
+            total: 9999,
+            list: list
+        };
+    },
 
-    /* 分类 */
-    async getClassList() {
-        let backData = new RepVideoClassList()
-        backData.data = [
-            ['293', '姐姐资源'],
-            ['86', '奥斯卡资源'],
-            ['117', '森林资源'],
-            ['337', '玉兔资源']
-        ].map(c => {
-            let v = new VideoClass()
-            v.type_id = c[0]
-            v.type_name = c[1]
-            return v
-        })
-        return JSON.stringify(backData)
-    }
+    // 搜索
+    search: function (wd, pg) {
+        pg = pg || 1;
+        var url = this.site.host + "/index.php/vod/search/page/" + pg + "/wd/" + encodeURIComponent(wd) + ".html";
+        var html = req(url);
 
-    /* 列表 */
-    async getVideoList(args) {
-        let backData = new RepVideoList()
-        try {
-            let page = args.page || 1
-            let url = `${this.webSite}/jiejie/index.php/vod/type/id/${args.url}/page/${page}.html`
-            let html = (await req(url, { headers: this.headers })).data
-            let doc = parse(html)
+        var list = [];
+        var reg = /<a href="([^"]+vod\/detail\/id\/\d+\.html)[^"]*">[\s\S]*?<img[^>]+data-original="([^"]+)"[^>]*>[\s\S]*?<h3>([^<]+)<\/h3>/g;
+        var match;
 
-            let items = doc.querySelectorAll('ul.stui-vodlist li')
-            backData.data = [...items].map(it => {
-                let a = it.querySelector('h4 a')
-                if (!a) return null
-                return {
-                    vod_id: this.combineUrl(a.getAttribute('href')),
-                    vod_name: a.text?.trim() || '',
-                    vod_pic: this.safePic,   // ⭐ 不加载任何外图
-                    vod_remarks: it.querySelector('.pic-text')?.text?.trim() || ''
+        while ((match = reg.exec(html)) !== null) {
+            list.push({
+                vod_id: match[1],
+                vod_name: match[3].trim(),
+                vod_pic: match[2],
+                vod_remarks: ""
+            });
+        }
+
+        return {
+            page: pg,
+            pagecount: 50,
+            list: list
+        };
+    },
+
+    // 详情页
+    detail: function (id) {
+        var url = id.indexOf("http") === 0 ? id : this.site.host + id;
+        var html = req(url);
+
+        var nameMatch = html.match(/<h1[^>]*>([^<]+)<\/h1>/);
+        var name = nameMatch ? nameMatch[1] : "";
+
+        var picMatch = html.match(/data-original="([^"]+)"/);
+        var pic = picMatch ? picMatch[1] : "";
+
+        var contentMatch = html.match(/<div class="vod_content">([\s\S]*?)<\/div>/);
+        var content = contentMatch ? contentMatch[1].replace(/<[^>]+>/g, "") : "";
+
+        var vod_play_url = "";
+        var playMatch = html.match(/var player_aaaa=(\{[\s\S]*?\});/);
+
+        if (playMatch) {
+            try {
+                var data = JSON.parse(playMatch[1]);
+                var playUrl = data.url || "";
+                if (playUrl.indexOf("/") === 0) {
+                    playUrl = this.site.host + playUrl;
                 }
-            }).filter(Boolean)
-        } catch (e) {
-            backData.error = e.message
+                vod_play_url = "在线播放$" + playUrl;
+            } catch (e) {}
         }
-        return JSON.stringify(backData)
+
+        return {
+            vod_id: id,
+            vod_name: name,
+            vod_pic: pic,
+            vod_content: content,
+            vod_play_from: "直链",
+            vod_play_url: vod_play_url
+        };
+    },
+
+    // 播放
+    play: function (flag, id) {
+        return {
+            parse: 0,
+            url: id,
+            header: {
+                Referer: this.site.host,
+                "User-Agent": "Mozilla/5.0"
+            }
+        };
     }
+};
 
-    /* 详情 */
-    async getVideoDetail(args) {
-        let backData = new RepVideoDetail()
-        try {
-            let vodId = args.url.match(/id\/(\d+)/)?.[1]
-            let html = (await req(args.url, { headers: this.headers })).data
-            let doc = parse(html)
-
-            let det = new VideoDetail()
-            det.vod_id = args.url
-            det.vod_name = doc.querySelector('h1.title')?.text?.trim() || ''
-            det.vod_content =
-                doc.querySelector('.data-more p:last-child')?.text?.trim() || ''
-            det.vod_pic = this.safePic
-
-            det.vod_play_from = '默认线路'
-            det.vod_play_url =
-                `播放$${this.webSite}/jiejie/index.php/vod/play/id/${vodId}/sid/1/nid/1.html#`
-
-            backData.data = det
-        } catch (e) {
-            backData.error = e.message
-        }
-        return JSON.stringify(backData)
-    }
-
-    /* ✅ 播放：WebView 嗅探（唯一稳定） */
-    async getVideoPlayUrl(args) {
-        let backData = new RepVideoPlayUrl()
-        backData.data = {
-            url: args.url,
-            parse: 1   // ⭐ 核心：交给 UZ WebView 嗅探 m3u8
-        }
-        return JSON.stringify(backData)
-    }
-
-    /* 搜索 */
-    async searchVideo(args) {
-        let backData = new RepVideoList()
-        try {
-            let page = args.page || 1
-            let url = `${this.webSite}/jiejie/index.php/vod/search/wd/${encodeURIComponent(
-                args.searchWord
-            )}/page/${page}.html`
-            let html = (await req(url, { headers: this.headers })).data
-            let doc = parse(html)
-
-            let items = doc.querySelectorAll('ul.stui-vodlist li')
-            backData.data = [...items].map(it => {
-                let a = it.querySelector('h4 a')
-                if (!a) return null
-                return {
-                    vod_id: this.combineUrl(a.getAttribute('href')),
-                    vod_name: a.text?.trim() || '',
-                    vod_pic: this.safePic,
-                    vod_remarks: it.querySelector('.pic-text')?.text?.trim() || ''
-                }
-            }).filter(Boolean)
-        } catch (e) {
-            backData.error = e.message
-        }
-        return JSON.stringify(backData)
-    }
-
-    combineUrl(url) {
-        if (!url) return ''
-        if (url.startsWith('http')) return url
-        return this.webSite + (url.startsWith('/') ? url : '/' + url)
-    }
-}
-
-var jiejie2025 = new jiejieClass()
+export default gqyszy;
