@@ -9,6 +9,10 @@ class jiejieClass extends WebApiBase {
             'Accept': '*/*',
             'Accept-Language': 'zh-CN,zh;q=0.9'
         }
+
+        // ✅ 永不崩溃的兜底封面（本地 / 空图）
+        this.safePic =
+            'https://via.placeholder.com/300x400.png?text=VIDEO'
     }
 
     /* 分类 */
@@ -38,12 +42,17 @@ class jiejieClass extends WebApiBase {
             let doc = parse(html)
 
             let items = doc.querySelectorAll('ul.stui-vodlist li')
-            backData.data = [...items].map(it => ({
-                vod_id: this.combineUrl(it.querySelector('h4 a')?.getAttribute('href')),
-                vod_name: it.querySelector('h4 a')?.text?.trim(),
-                vod_pic: it.querySelector('.stui-vodlist__thumb')?.getAttribute('data-original') || '',
-                vod_remarks: it.querySelector('.pic-text')?.text?.trim() || ''
-            })).filter(v => v.vod_id)
+            backData.data = [...items].map(it => {
+                let id = this.combineUrl(it.querySelector('h4 a')?.getAttribute('href'))
+                if (!id) return null
+
+                return {
+                    vod_id: id,
+                    vod_name: it.querySelector('h4 a')?.text?.trim() || '',
+                    vod_pic: this.safePic,      // ⭐ 强制安全封面
+                    vod_remarks: it.querySelector('.pic-text')?.text?.trim() || ''
+                }
+            }).filter(Boolean)
         } catch (e) {
             backData.error = e.message
         }
@@ -60,13 +69,10 @@ class jiejieClass extends WebApiBase {
 
             let det = new VideoDetail()
             det.vod_id = args.url
-            det.vod_name = doc.querySelector('h1.title')?.text?.trim()
-            det.vod_pic =
-                doc.querySelector('.stui-content__thumb img')?.getAttribute('data-original') ||
-                doc.querySelector('.stui-content__thumb img')?.getAttribute('src') ||
-                ''
-
-            det.vod_content = doc.querySelector('.data-more p:last-child')?.text?.trim() || ''
+            det.vod_name = doc.querySelector('h1.title')?.text?.trim() || ''
+            det.vod_content =
+                doc.querySelector('.data-more p:last-child')?.text?.trim() || ''
+            det.vod_pic = this.safePic   // ⭐ 详情页也不信任外图
 
             det.vod_play_from = 'aosika'
             det.vod_play_url =
@@ -79,27 +85,38 @@ class jiejieClass extends WebApiBase {
         return JSON.stringify(backData)
     }
 
-    /* 🔥 直解析 m3u8 */
+    /* 🔥 播放：直解析 → 失败回退 WebView */
     async getVideoPlayUrl(args) {
         let backData = new RepVideoPlayUrl()
         try {
             let html = (await req(args.url, { headers: this.headers })).data
 
-            /**
-             * 匹配：
-             * var player_aaaa = { ... "url":"https://xxx/index.m3u8" ... }
-             */
-            let m3u8 = html.match(/"url"\s*:\s*"(https?:\/\/[^"]+\.m3u8)"/)?.[1]
+            // 直解析 m3u8
+            let m3u8 =
+                html.match(/"url"\s*:\s*"(https?:\/\/[^"]+\.m3u8)"/)?.[1]
 
-            if (!m3u8) throw new Error('未解析到 m3u8')
-
-            backData.data = {
-                url: m3u8,
-                parse: 0,               // ⭐ 直链播放
-                header: this.headers    // 防 403
+            if (m3u8) {
+                backData.data = {
+                    url: m3u8,
+                    parse: 0,
+                    header: {
+                        'User-Agent': this.headers['User-Agent'],
+                        'Referer': args.url
+                    }
+                }
+            } else {
+                // 🔁 兜底：WebView 嗅探
+                backData.data = {
+                    url: args.url,
+                    parse: 1
+                }
             }
         } catch (e) {
-            backData.error = e.message
+            // ❌ 网络 / 解析异常 → 强制回退嗅探
+            backData.data = {
+                url: args.url,
+                parse: 1
+            }
         }
         return JSON.stringify(backData)
     }
@@ -116,12 +133,17 @@ class jiejieClass extends WebApiBase {
             let doc = parse(html)
 
             let items = doc.querySelectorAll('ul.stui-vodlist li')
-            backData.data = [...items].map(it => ({
-                vod_id: this.combineUrl(it.querySelector('h4 a')?.getAttribute('href')),
-                vod_name: it.querySelector('h4 a')?.text?.trim(),
-                vod_pic: it.querySelector('.stui-vodlist__thumb')?.getAttribute('data-original') || '',
-                vod_remarks: it.querySelector('.pic-text')?.text?.trim() || ''
-            })).filter(v => v.vod_id)
+            backData.data = [...items].map(it => {
+                let id = this.combineUrl(it.querySelector('h4 a')?.getAttribute('href'))
+                if (!id) return null
+
+                return {
+                    vod_id: id,
+                    vod_name: it.querySelector('h4 a')?.text?.trim() || '',
+                    vod_pic: this.safePic,
+                    vod_remarks: it.querySelector('.pic-text')?.text?.trim() || ''
+                }
+            }).filter(Boolean)
         } catch (e) {
             backData.error = e.message
         }
