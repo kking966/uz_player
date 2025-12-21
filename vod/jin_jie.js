@@ -1,133 +1,118 @@
-// 高清一手资源 - uzVideo 最终可用版
-var gqyszy = {
-    site: {
-        name: "高清一手资源",
-        host: "https://www.gqyszy.xyz",
-        logo: "https://www.gqyszy.xyz/template/fengmaxiu/images/logo.png",
-        lang: "zh",
-        type: 1
+// ===============================
+// 姐姐视频 wap.jiejiesp19.xyz
+// MacCMS 站点解析
+// 可直接使用
+// ===============================
+
+var Jin_jiejie = {
+    site: "姐姐视频",
+    host: "https://wap.jiejiesp19.xyz",
+    home: "/jiejie/",
+    search: "/jiejie/index.php/vod/search.html?wd={wd}",
+    headers: {
+        "User-Agent": "Mozilla/5.0",
+        "Referer": "https://wap.jiejiesp19.xyz"
     },
 
-    // 首页分类
-    home: function () {
-        return {
-            class: [
-                { type_id: "134", type_name: "女同性恋" },
-                { type_id: "133", type_name: "变性伪娘" },
-                { type_id: "132", type_name: "动漫卡通" },
-                { type_id: "130", type_name: "人妻熟女" },
-                { type_id: "129", type_name: "欧美激情" },
-                { type_id: "122", type_name: "中文字幕" },
-                { type_id: "93",  type_name: "高清无码" },
-                { type_id: "105", type_name: "国产主播" }
-            ],
-            filters: {}
-        };
+    // ===============================
+    // 首页 & 分类
+    // ===============================
+    homeVod: function () {
+        return this.categoryVod("/jiejie/");
     },
 
-    // 分类列表
-    category: function (tid, pg) {
-        pg = pg || 1;
-        var url = this.site.host + "/index.php/vod/type/id/" + tid + "/page/" + pg + ".html";
-        var html = req(url);
+    categoryVod: function (url) {
+        let html = request(this.host + url, { headers: this.headers });
 
-        var list = [];
-        var reg = /<a href="([^"]+vod\/detail\/id\/\d+\.html)[^"]*">[\s\S]*?<img[^>]+data-original="([^"]+)"[^>]*>[\s\S]*?<h3>([^<]+)<\/h3>/g;
-        var match;
+        let list = [];
+        let items = pdfa(html, ".stui-vodlist li");
 
-        while ((match = reg.exec(html)) !== null) {
+        items.forEach(it => {
+            let a = pdfh(it, ".stui-vodlist__thumb&&a");
+            if (!a) return;
+
             list.push({
-                vod_id: match[1],
-                vod_name: match[3].trim(),
-                vod_pic: match[2],
-                vod_remarks: ""
+                vod_name: pdfh(a, "a&&title"),
+                vod_pic: pdfh(a, "a&&data-original"),
+                vod_id: pdfh(a, "a&&href")
             });
-        }
+        });
 
-        return {
-            page: pg,
-            pagecount: 999,
-            limit: 20,
-            total: 9999,
-            list: list
-        };
+        return list;
     },
 
-    // 搜索
-    search: function (wd, pg) {
-        pg = pg || 1;
-        var url = this.site.host + "/index.php/vod/search/page/" + pg + "/wd/" + encodeURIComponent(wd) + ".html";
-        var html = req(url);
-
-        var list = [];
-        var reg = /<a href="([^"]+vod\/detail\/id\/\d+\.html)[^"]*">[\s\S]*?<img[^>]+data-original="([^"]+)"[^>]*>[\s\S]*?<h3>([^<]+)<\/h3>/g;
-        var match;
-
-        while ((match = reg.exec(html)) !== null) {
-            list.push({
-                vod_id: match[1],
-                vod_name: match[3].trim(),
-                vod_pic: match[2],
-                vod_remarks: ""
-            });
-        }
-
-        return {
-            page: pg,
-            pagecount: 50,
-            list: list
-        };
-    },
-
+    // ===============================
     // 详情页
+    // ===============================
     detail: function (id) {
-        var url = id.indexOf("http") === 0 ? id : this.site.host + id;
-        var html = req(url);
+        let html = request(this.host + id, { headers: this.headers });
 
-        var nameMatch = html.match(/<h1[^>]*>([^<]+)<\/h1>/);
-        var name = nameMatch ? nameMatch[1] : "";
+        let vod = {
+            vod_name: pdfh(html, "h1&&Text") || pdfh(html, ".title&&Text"),
+            vod_pic: pdfh(html, ".stui-vodlist__thumb&&data-original"),
+            vod_content: pdfh(html, ".stui-content__detail&&Text"),
+        };
 
-        var picMatch = html.match(/data-original="([^"]+)"/);
-        var pic = picMatch ? picMatch[1] : "";
+        // 播放列表（一般只有一集）
+        let playUrl = id.replace("/detail/", "/play/").replace(".html", "/sid/1/nid/1.html");
+        vod.vod_play_from = "姐姐视频";
+        vod.vod_play_url = "播放$" + playUrl;
 
-        var contentMatch = html.match(/<div class="vod_content">([\s\S]*?)<\/div>/);
-        var content = contentMatch ? contentMatch[1].replace(/<[^>]+>/g, "") : "";
+        return vod;
+    },
 
-        var vod_play_url = "";
-        var playMatch = html.match(/var player_aaaa=(\{[\s\S]*?\});/);
+    // ===============================
+    // 播放解析
+    // ===============================
+    play: function (id) {
+        let html = request(this.host + id, { headers: this.headers });
 
-        if (playMatch) {
-            try {
-                var data = JSON.parse(playMatch[1]);
-                var playUrl = data.url || "";
-                if (playUrl.indexOf("/") === 0) {
-                    playUrl = this.site.host + playUrl;
-                }
-                vod_play_url = "在线播放$" + playUrl;
-            } catch (e) {}
+        // 1️⃣ 优先找 MacCMS player_data
+        let match = html.match(/player_data\s*=\s*(\{.*?\});/);
+        if (match) {
+            let data = JSON.parse(match[1]);
+            return {
+                parse: 0,
+                url: data.url
+            };
+        }
+
+        // 2️⃣ 找 iframe
+        let iframe = pdfh(html, "iframe&&src");
+        if (iframe) {
+            return {
+                parse: 1,
+                url: iframe
+            };
         }
 
         return {
-            vod_id: id,
-            vod_name: name,
-            vod_pic: pic,
-            vod_content: content,
-            vod_play_from: "直链",
-            vod_play_url: vod_play_url
+            parse: 1,
+            url: id
         };
     },
 
-    // 播放
-    play: function (flag, id) {
-        return {
-            parse: 0,
-            url: id,
-            header: {
-                Referer: this.site.host,
-                "User-Agent": "Mozilla/5.0"
-            }
-        };
+    // ===============================
+    // 搜索
+    // ===============================
+    searchVod: function (wd) {
+        let url = this.search.replace("{wd}", encodeURIComponent(wd));
+        let html = request(this.host + url, { headers: this.headers });
+
+        let list = [];
+        let items = pdfa(html, ".stui-vodlist li");
+
+        items.forEach(it => {
+            let a = pdfh(it, ".stui-vodlist__thumb&&a");
+            if (!a) return;
+
+            list.push({
+                vod_name: pdfh(a, "a&&title"),
+                vod_pic: pdfh(a, "a&&data-original"),
+                vod_id: pdfh(a, "a&&href")
+            });
+        });
+
+        return list;
     }
 };
-
-export default ces;
