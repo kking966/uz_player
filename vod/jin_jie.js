@@ -1,118 +1,154 @@
-// ===============================
-// 姐姐视频 wap.jiejiesp19.xyz
-// MacCMS 站点解析
-// 可直接使用
-// ===============================
+// ignore
+//@name:[禁] 姐姐视频
+//@version:1
+//@webSite:https://wap.jiejiesp19.xyz
+//@type:100
+//@instance:jiejiesp2025
+//@isAV:1
+//@order:E
+import {} from '../../core/uzVideo.js'
+import {} from '../../core/uzHome.js'
+import {} from '../../core/uz3lib.js'
+import {} from '../../core/uzUtils.js'
+// ignore
 
-var Jin_jiejie = {
-    site: "姐姐视频",
-    host: "https://wap.jiejiesp19.xyz",
-    home: "/jiejie/",
-    search: "/jiejie/index.php/vod/search.html?wd={wd}",
-    headers: {
-        "User-Agent": "Mozilla/5.0",
-        "Referer": "https://wap.jiejiesp19.xyz"
-    },
-
-    // ===============================
-    // 首页 & 分类
-    // ===============================
-    homeVod: function () {
-        return this.categoryVod("/jiejie/");
-    },
-
-    categoryVod: function (url) {
-        let html = request(this.host + url, { headers: this.headers });
-
-        let list = [];
-        let items = pdfa(html, ".stui-vodlist li");
-
-        items.forEach(it => {
-            let a = pdfh(it, ".stui-vodlist__thumb&&a");
-            if (!a) return;
-
-            list.push({
-                vod_name: pdfh(a, "a&&title"),
-                vod_pic: pdfh(a, "a&&data-original"),
-                vod_id: pdfh(a, "a&&href")
-            });
-        });
-
-        return list;
-    },
-
-    // ===============================
-    // 详情页
-    // ===============================
-    detail: function (id) {
-        let html = request(this.host + id, { headers: this.headers });
-
-        let vod = {
-            vod_name: pdfh(html, "h1&&Text") || pdfh(html, ".title&&Text"),
-            vod_pic: pdfh(html, ".stui-vodlist__thumb&&data-original"),
-            vod_content: pdfh(html, ".stui-content__detail&&Text"),
-        };
-
-        // 播放列表（一般只有一集）
-        let playUrl = id.replace("/detail/", "/play/").replace(".html", "/sid/1/nid/1.html");
-        vod.vod_play_from = "姐姐视频";
-        vod.vod_play_url = "播放$" + playUrl;
-
-        return vod;
-    },
-
-    // ===============================
-    // 播放解析
-    // ===============================
-    play: function (id) {
-        let html = request(this.host + id, { headers: this.headers });
-
-        // 1️⃣ 优先找 MacCMS player_data
-        let match = html.match(/player_data\s*=\s*(\{.*?\});/);
-        if (match) {
-            let data = JSON.parse(match[1]);
-            return {
-                parse: 0,
-                url: data.url
-            };
+class jiejiespClass extends WebApiBase {
+    constructor() {
+        super()
+        this.webSite = 'https://wap.jiejiesp19.xyz'
+        this.headers = {
+            'User-Agent': 'Mozilla/5.0 (Linux; Android 10)',
         }
-
-        // 2️⃣ 找 iframe
-        let iframe = pdfh(html, "iframe&&src");
-        if (iframe) {
-            return {
-                parse: 1,
-                url: iframe
-            };
-        }
-
-        return {
-            parse: 1,
-            url: id
-        };
-    },
-
-    // ===============================
-    // 搜索
-    // ===============================
-    searchVod: function (wd) {
-        let url = this.search.replace("{wd}", encodeURIComponent(wd));
-        let html = request(this.host + url, { headers: this.headers });
-
-        let list = [];
-        let items = pdfa(html, ".stui-vodlist li");
-
-        items.forEach(it => {
-            let a = pdfh(it, ".stui-vodlist__thumb&&a");
-            if (!a) return;
-
-            list.push({
-                vod_name: pdfh(a, "a&&title"),
-                vod_pic: pdfh(a, "a&&data-original"),
-                vod_id: pdfh(a, "a&&href")
-            });
-        });
-
-        return list;
     }
-};
+
+    /**
+     * 分类列表
+     */
+    async getClassList(args) {
+        let backData = new RepVideoClassList()
+        try {
+            const pro = await req(this.webSite + '/jiejie/', { headers: this.headers })
+            backData.error = pro.error
+
+            if (pro.data) {
+                let document = parse(pro.data)
+                let list = []
+
+                let navs = document.querySelectorAll('.stui-header__menu a')
+                for (let e of navs) {
+                    let name = e.text?.trim()
+                    let url = e.getAttribute('href')
+                    if (!name || !url || name === '首页') continue
+
+                    let vc = new VideoClass()
+                    vc.type_name = name
+                    vc.type_id = this.combineUrl(url)
+                    list.push(vc)
+                }
+                backData.data = list
+            }
+        } catch (e) {
+            backData.error = e.message
+        }
+        return JSON.stringify(backData)
+    }
+
+    /**
+     * 分类视频列表
+     */
+    async getVideoList(args) {
+        let backData = new RepVideoList()
+        try {
+            let pageUrl = args.page > 1
+                ? args.url.replace(/\.html$/, '') + `/page/${args.page}.html`
+                : args.url
+
+            const pro = await req(pageUrl, { headers: this.headers })
+            backData.error = pro.error
+
+            if (pro.data) {
+                let document = parse(pro.data)
+                let list = []
+
+                let items = document.querySelectorAll('.stui-vodlist li')
+                for (let e of items) {
+                    let vod = new VideoDetail()
+                    vod.vod_id = this.combineUrl(
+                        e.querySelector('.stui-vodlist__thumb')?.getAttribute('href')
+                    )
+                    vod.vod_name = e.querySelector('.title a')?.text
+                    vod.vod_pic = e.querySelector('.stui-vodlist__thumb')
+                        ?.getAttribute('data-original')
+                    vod.vod_remarks = e.querySelector('.pic-text')?.text ?? ''
+
+                    if (vod.vod_id) list.push(vod)
+                }
+                backData.data = list
+            }
+        } catch (e) {
+            backData.error = e.message
+        }
+        return JSON.stringify(backData)
+    }
+
+    /**
+     * 视频详情
+     */
+    async getVideoDetail(args) {
+        let backData = new RepVideoDetail()
+        try {
+            const pro = await req(args.url, { headers: this.headers })
+            backData.error = pro.error
+
+            if (pro.data) {
+                let document = parse(pro.data)
+                let det = new VideoDetail()
+
+                det.vod_name = document.querySelector('.stui-content__detail h1')?.text
+                    || document.querySelector('h1')?.text
+                det.vod_pic = document.querySelector('.stui-content__thumb img')
+                    ?.getAttribute('data-original')
+                det.vod_play_url = '播放$' + args.url
+                det.vod_id = args.url
+
+                backData.data = det
+            }
+        } catch (e) {
+            backData.error = e.message
+        }
+        return JSON.stringify(backData)
+    }
+
+    /**
+     * 播放地址解析
+     */
+    async getVideoPlayUrl(args) {
+        let backData = new RepVideoPlayUrl()
+        try {
+            const pro = await req(args.url, { headers: this.headers })
+            backData.error = pro.error
+
+            if (pro.data) {
+                // MacCMS 通常 iframe 或 m3u8 在 script 中
+                let m3u8 = pro.data.match(/(https?:\/\/.*?\.m3u8)/)
+                if (m3u8) {
+                    backData.data = m3u8[1]
+                } else {
+                    // fallback：交给壳内 WebView 播放
+                    backData.data = args.url
+                }
+            }
+        } catch (e) {
+            backData.error = e.message
+        }
+        return JSON.stringify(backData)
+    }
+
+    combineUrl(url) {
+        if (!url) return ''
+        if (url.startsWith('http')) return url
+        return this.webSite + url
+    }
+}
+
+let jiejiesp2025 = new jiejiespClass()
