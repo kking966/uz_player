@@ -1,6 +1,6 @@
 // ignore
 //@name:[禁] 姐姐视频
-//@version:1.3
+//@version:1
 //@webSite:https://wap.jiejiesp19.xyz
 //@type:100
 //@instance:jiejiesp2025
@@ -12,184 +12,143 @@ import {} from '../../core/uz3lib.js'
 import {} from '../../core/uzUtils.js'
 // ignore
 
-function jiejiespClass() {
-    WebApiBase.call(this)
-
-    this.webSite = 'https://wap.jiejiesp19.xyz'
-    this.headers = {
-        'User-Agent': 'Mozilla/5.0 (Linux; Android 10)',
-        'Referer': this.webSite
+class jiejiespClass extends WebApiBase {
+    constructor() {
+        super()
+        this.webSite = 'https://wap.jiejiesp19.xyz'
+        this.headers = {
+            'User-Agent': 'Mozilla/5.0 (Linux; Android 10)',
+        }
     }
-}
 
-jiejiespClass.prototype = Object.create(WebApiBase.prototype)
-jiejiespClass.prototype.constructor = jiejiespClass
+    /**
+     * 分类列表
+     */
+    async getClassList(args) {
+        let backData = new RepVideoClassList()
+        try {
+            const pro = await req(this.webSite + '/jiejie/', { headers: this.headers })
+            backData.error = pro.error
 
-// ===============================
-// 分类
-// ===============================
-jiejiespClass.prototype.getClassList = async function (args) {
-    var backData = new RepVideoClassList()
-    try {
-        var res = await req(this.webSite + '/jiejie/', { headers: this.headers })
-        backData.error = res.error
+            if (pro.data) {
+                let document = parse(pro.data)
+                let list = []
 
-        if (res.data) {
-            var doc = parse(res.data)
-            var list = []
+                let navs = document.querySelectorAll('.stui-header__menu a')
+                for (let e of navs) {
+                    let name = e.text?.trim()
+                    let url = e.getAttribute('href')
+                    if (!name || !url || name === '首页') continue
 
-            var navs = doc.querySelectorAll('.stui-header__menu a')
-            for (var i = 0; i < navs.length; i++) {
-                var n = navs[i]
-                var name = n.text ? n.text.trim() : ''
-                var href = n.getAttribute('href')
-                if (!name || !href || name === '首页') continue
-
-                var vc = new VideoClass()
-                vc.type_name = name
-                vc.type_id = this.combineUrl(href)
-                list.push(vc)
+                    let vc = new VideoClass()
+                    vc.type_name = name
+                    vc.type_id = this.combineUrl(url)
+                    list.push(vc)
+                }
+                backData.data = list
             }
-            backData.data = list
+        } catch (e) {
+            backData.error = e.message
         }
-    } catch (e) {
-        backData.error = e.message
+        return JSON.stringify(backData)
     }
-    return JSON.stringify(backData)
-}
 
-// ===============================
-// 分类列表
-// ===============================
-jiejiespClass.prototype.getVideoList = async function (args) {
-    var backData = new RepVideoList()
-    try {
-        var url = args.page > 1
-            ? args.url.replace('.html', '') + '/page/' + args.page + '.html'
-            : args.url
+    /**
+     * 分类视频列表
+     */
+    async getVideoList(args) {
+        let backData = new RepVideoList()
+        try {
+            let pageUrl = args.page > 1
+                ? args.url.replace(/\.html$/, '') + `/page/${args.page}.html`
+                : args.url
 
-        var res = await req(url, { headers: this.headers })
-        backData.error = res.error
+            const pro = await req(pageUrl, { headers: this.headers })
+            backData.error = pro.error
 
-        if (res.data) {
-            var doc = parse(res.data)
-            var list = []
+            if (pro.data) {
+                let document = parse(pro.data)
+                let list = []
 
-            var items = doc.querySelectorAll('.stui-vodlist li')
-            for (var i = 0; i < items.length; i++) {
-                var it = items[i]
-                var vod = new VideoDetail()
+                let items = document.querySelectorAll('.stui-vodlist li')
+                for (let e of items) {
+                    let vod = new VideoDetail()
+                    vod.vod_id = this.combineUrl(
+                        e.querySelector('.stui-vodlist__thumb')?.getAttribute('href')
+                    )
+                    vod.vod_name = e.querySelector('.title a')?.text
+                    vod.vod_pic = e.querySelector('.stui-vodlist__thumb')
+                        ?.getAttribute('data-original')
+                    vod.vod_remarks = e.querySelector('.pic-text')?.text ?? ''
 
-                var a = it.querySelector('.stui-vodlist__thumb')
-                if (!a) continue
-
-                vod.vod_id = this.combineUrl(a.getAttribute('href'))
-                vod.vod_name = it.querySelector('.title a')
-                    ? it.querySelector('.title a').text.trim()
-                    : ''
-                vod.vod_pic = a.getAttribute('data-original')
-                vod.vod_remarks = it.querySelector('.pic-text')
-                    ? it.querySelector('.pic-text').text
-                    : ''
-
-                if (vod.vod_id) list.push(vod)
+                    if (vod.vod_id) list.push(vod)
+                }
+                backData.data = list
             }
-            backData.data = list
+        } catch (e) {
+            backData.error = e.message
         }
-    } catch (e) {
-        backData.error = e.message
+        return JSON.stringify(backData)
     }
-    return JSON.stringify(backData)
-}
 
-// ===============================
-// 详情
-// ===============================
-jiejiespClass.prototype.getVideoDetail = async function (args) {
-    var backData = new RepVideoDetail()
-    try {
-        var res = await req(args.url, { headers: this.headers })
-        backData.error = res.error
+    /**
+     * 视频详情
+     */
+    async getVideoDetail(args) {
+        let backData = new RepVideoDetail()
+        try {
+            const pro = await req(args.url, { headers: this.headers })
+            backData.error = pro.error
 
-        if (res.data) {
-            var doc = parse(res.data)
-            var vod = new VideoDetail()
+            if (pro.data) {
+                let document = parse(pro.data)
+                let det = new VideoDetail()
 
-            vod.vod_id = args.url
-            vod.vod_name = doc.querySelector('h1')
-                ? doc.querySelector('h1').text
-                : ''
+                det.vod_name = document.querySelector('.stui-content__detail h1')?.text
+                    || document.querySelector('h1')?.text
+                det.vod_pic = document.querySelector('.stui-content__thumb img')
+                    ?.getAttribute('data-original')
+                det.vod_play_url = '播放$' + args.url
+                det.vod_id = args.url
 
-            var img = doc.querySelector('.stui-content__thumb img')
-            vod.vod_pic = img ? img.getAttribute('data-original') : ''
-
-            vod.vod_play_from = '姐姐视频'
-            vod.vod_play_url =
-                '播放$' +
-                args.url
-                    .replace('/detail/', '/play/')
-                    .replace('.html', '/sid/1/nid/1.html')
-
-            backData.data = vod
+                backData.data = det
+            }
+        } catch (e) {
+            backData.error = e.message
         }
-    } catch (e) {
-        backData.error = e.message
+        return JSON.stringify(backData)
     }
-    return JSON.stringify(backData)
-}
 
-// ===============================
-// 播放解析（稳定版）
-// ===============================
-jiejiespClass.prototype.getVideoPlayUrl = async function (args) {
-    var backData = new RepVideoPlayUrl()
-    try {
-        var res = await req(args.url, { headers: this.headers })
-        backData.error = res.error
+    /**
+     * 播放地址解析
+     */
+    async getVideoPlayUrl(args) {
+        let backData = new RepVideoPlayUrl()
+        try {
+            const pro = await req(args.url, { headers: this.headers })
+            backData.error = pro.error
 
-        if (!res.data) {
-            backData.error = '播放页为空'
-            return JSON.stringify(backData)
+            if (pro.data) {
+                // MacCMS 通常 iframe 或 m3u8 在 script 中
+                let m3u8 = pro.data.match(/(https?:\/\/.*?\.m3u8)/)
+                if (m3u8) {
+                    backData.data = m3u8[1]
+                } else {
+                    // fallback：交给壳内 WebView 播放
+                    backData.data = args.url
+                }
+            }
+        } catch (e) {
+            backData.error = e.message
         }
-
-        var html = res.data
-        var m = html.match(/player_[^=]+=\s*(\{[\s\S]*?\})/)
-
-        if (!m) {
-            backData.error = '未找到播放信息'
-            return JSON.stringify(backData)
-        }
-
-        var player = JSON.parse(m[1])
-        var url = player.url || ''
-        var encrypt = Number(player.encrypt || 0)
-
-        if (encrypt === 1) {
-            url = unescape(url)
-        } else if (encrypt === 2) {
-            url = decodeURIComponent(atob(url))
-        }
-
-        if (url.indexOf('http') !== 0) {
-            url = this.webSite + url
-        }
-
-        backData.data = url
-
-    } catch (e) {
-        backData.error = e.message
+        return JSON.stringify(backData)
     }
-    return JSON.stringify(backData)
+
+    combineUrl(url) {
+        if (!url) return ''
+        if (url.startsWith('http')) return url
+        return this.webSite + url
+    }
 }
 
-// ===============================
-// URL 补全
-// ===============================
-jiejiespClass.prototype.combineUrl = function (url) {
-    if (!url) return ''
-    if (url.indexOf('http') === 0) return url
-    return this.webSite + url
-}
-
-// 实例
-var jiejiesp2025 = new jiejiespClass()
+let jiejiesp2025 = new jiejiespClass()
