@@ -1,6 +1,6 @@
 // ignore
 //@name:[禁] 姐姐视频
-//@version:1
+//@version:1.1
 //@webSite:https://wap.jiejiesp19.xyz
 //@type:100
 //@instance:jiejiesp2025
@@ -18,6 +18,7 @@ class jiejiespClass extends WebApiBase {
         this.webSite = 'https://wap.jiejiesp19.xyz'
         this.headers = {
             'User-Agent': 'Mozilla/5.0 (Linux; Android 10)',
+            'Referer': this.webSite
         }
     }
 
@@ -104,12 +105,17 @@ class jiejiespClass extends WebApiBase {
                 let document = parse(pro.data)
                 let det = new VideoDetail()
 
-                det.vod_name = document.querySelector('.stui-content__detail h1')?.text
-                    || document.querySelector('h1')?.text
-                det.vod_pic = document.querySelector('.stui-content__thumb img')
-                    ?.getAttribute('data-original')
-                det.vod_play_url = '播放$' + args.url
+                det.vod_name =
+                    document.querySelector('.stui-content__detail h1')?.text ||
+                    document.querySelector('h1')?.text
+
+                det.vod_pic =
+                    document.querySelector('.stui-content__thumb img')
+                        ?.getAttribute('data-original')
+
                 det.vod_id = args.url
+                det.vod_play_from = '姐姐视频'
+                det.vod_play_url = '播放$' + args.url
 
                 backData.data = det
             }
@@ -120,7 +126,7 @@ class jiejiespClass extends WebApiBase {
     }
 
     /**
-     * 播放地址解析
+     * 播放地址解析（✔ 已修复黑屏转圈）
      */
     async getVideoPlayUrl(args) {
         let backData = new RepVideoPlayUrl()
@@ -128,16 +134,38 @@ class jiejiespClass extends WebApiBase {
             const pro = await req(args.url, { headers: this.headers })
             backData.error = pro.error
 
-            if (pro.data) {
-                // MacCMS 通常 iframe 或 m3u8 在 script 中
-                let m3u8 = pro.data.match(/(https?:\/\/.*?\.m3u8)/)
-                if (m3u8) {
-                    backData.data = m3u8[1]
-                } else {
-                    // fallback：交给壳内 WebView 播放
-                    backData.data = args.url
-                }
+            if (!pro.data) {
+                backData.error = '播放页为空'
+                return JSON.stringify(backData)
             }
+
+            let html = pro.data
+
+            // 1️⃣ 解析 MacCMS player_xxx
+            let match = html.match(/player_[a-zA-Z0-9_]+\s*=\s*(\{[\s\S]*?\})/)
+            if (!match) {
+                backData.error = '未找到播放数据'
+                return JSON.stringify(backData)
+            }
+
+            let player = JSON.parse(match[1])
+            let playUrl = player.url || ''
+            let encrypt = Number(player.encrypt || 0)
+
+            // 2️⃣ 解密
+            if (encrypt === 1) {
+                playUrl = unescape(playUrl)
+            } else if (encrypt === 2) {
+                playUrl = decodeURIComponent(atob(playUrl))
+            }
+
+            // 3️⃣ 补全相对路径
+            if (!playUrl.startsWith('http')) {
+                playUrl = this.webSite + playUrl
+            }
+
+            backData.data = playUrl
+
         } catch (e) {
             backData.error = e.message
         }
