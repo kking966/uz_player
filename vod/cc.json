@@ -1,0 +1,272 @@
+[
+  {
+    "id": "SeMaoZiYuan4",
+    "name": "色猫资源④",
+    "api": "https://api.maozyapi.com/inc/api.php/provide/vod/at/xml/",
+    "nsfw": true,
+    "type": 0,
+    "extra": {
+      "gfw": false
+    }
+  },
+  {
+    "id": "SeMaoZiYuan3",
+    "name": "色猫资源③",
+    "api": "https://api.maozyapi.com/inc/api.php",
+    "nsfw": true,
+    "type": 0,
+    "extra": {
+      "gfw": false
+    }
+  },
+  {
+    "id": "SeMaoZiYuan2",
+    "name": "色猫资源②",
+    "api": "https://caiji.semaozy.net/inc/api.php",
+    "nsfw": true,
+    "type": 0,
+    "extra": {
+      "gfw": false
+    }
+  },
+  {
+    "id": "SeMaoZiYuan1",
+    "name": "色猫资源①",
+    "api": "https://api.maozyapi.com/inc/apijson_vod.php",
+    "nsfw": true,
+    "type": 1,
+    "extra": {
+      "gfw": false
+    }
+  },
+  {
+    "id": "XiuRenZiYuan",
+    "name": "秀人资源",
+    "api": "https://xiuren.site/api.php/provide/vod/",
+    "nsfw": true,
+    "type": 1,
+    "extra": {
+      "gfw": false
+    }
+  },
+  {
+    "id": "ShiLeYuanZiYuan",
+    "name": "湿乐园资源",
+    "api": "https://xxavs.com/api.php/provide/vod/",
+    "nsfw": true,
+    "type": 1,
+    "extra": {
+      "gfw": false
+    }
+  },
+  {
+    "id": "JKUNZiYuanA",
+    "name": "JKUN资源站A",
+    "api": "https://www.jkunzyapi.com/api.php/provide/vod/",
+    "nsfw": true,
+    "type": 1,
+    "extra": {
+      "gfw": false
+    }
+  },
+  {
+    "id": "JKUNZiYuanB",
+    "name": "JKUN资源站B",
+    "api": "https://jkunzyapi.com/api.php/provide/vod",
+    "nsfw": true,
+    "type": 1,
+    "extra": {
+      "gfw": false
+    }
+  },
+  {
+    "id": "JingDongZiYuan",
+    "name": "精东资源",
+    "api": "http://chujia.cc/api.php/provide/vod/",
+    "nsfw": true,
+    "type": 1,
+    "extra": {
+      "gfw": false
+    }
+  },
+  {
+    "id": "FuErDaiZiYuan",
+    "name": "富二代资源",
+    "api": "http://f2dcj6.com/sapi?ac=list&pg=1",
+    "nsfw": true,
+    "type": 0,
+    "extra": {
+      "gfw": false
+    }
+  },
+  {
+    "id": "JingPin",
+    "name": "精品",
+    "api": "https://www.jingpinx.com//api.php/provide/vod/?ac=list",
+    "nsfw": true,
+    "type": 1,
+    "extra": {
+      "gfw": false
+    }
+  },
+  {
+    "id": "155CaiJiA",
+    "name": "155采集A",
+    "api": "https://155api.com/api.php/provide/vod/",
+    "nsfw": true,
+    "type": 1,
+    "extra": {
+      "gfw": false
+    }
+  },
+  {
+    "id": "115ZiYuanB",
+    "name": "115资源B",
+    "api": "https://155api.com/api.php/provide/vod/?ac=list",
+    "nsfw": true,
+    "type": 1,
+    "extra": {
+      "gfw": false
+    }
+  },
+  {
+    "id": "HuangAiWei",
+    "name": "黄艾薇",
+    "api": "https://www.pgxdy.com/api/xml.php",
+    "nsfw": true,
+    "type": 0,
+    "extra": {
+      "gfw": false
+    }
+  },
+  {
+    "id": "LaJiao",
+    "name": "辣椒",
+    "api": "http://api.11bat.com/api.php/provide/vod/",
+    "nsfw": true,
+    "type": 1,
+    "extra": {
+      "gfw": false
+    }
+  },
+  {
+    "id": "LaJiaoZiYuan",
+    "name": "辣椒资源",
+    "api": "https://apilj.com/api.php/provide/vod/at/json/",
+    "nsfw": true,
+    "type": 1,
+    "extra": {
+      "gfw": false
+    }
+  },
+  {
+    "id": "HuangGua",
+    "name": "黄瓜",
+    "api": "https://www.avre06.com/api.php/provide/vod/?ac=list",
+    "nsfw": true,
+    "type": 1,
+    "extra": {
+      "gfw": false
+    }
+  },
+  {
+    "id": "998ZiYuan",
+    "name": "998资源",
+    "api": "https://api.998zy.com/api.php/provide/vod/at/json/",
+    "nsfw": true,
+    "type": 1,
+    "extra": {
+      "gfw": false
+    }
+  },
+  {
+    "id": "YuTuZiYuanA",
+    "name": "玉兔资源A",
+    "api": "https://apiyutu.com/api.php/providedao/vod/?ac=list",
+    "nsfw": true,
+    "type": 1,
+    "extra": {
+      "gfw": false
+    }
+  },
+  {
+    "id": "YuTuZiYuanB",
+    "name": "玉兔资源B",
+    "api": "https://yutuzy10.com/api.php/provide/vod/",
+    "nsfw": true,
+    "type": 1,
+    "extra": {
+      "gfw": false
+    }
+  },
+  {
+    "id": "PuTaoZiYuanA",
+    "name": "葡萄资源A",
+    "api": "https://caiji.putaozyw.net/inc/api.php",
+    "nsfw": true,
+    "type": 0,
+    "extra": {
+      "gfw": false
+    }
+  },
+  {
+    "id": "PuTaoZiYuanB",
+    "name": "葡萄资源B",
+    "api": "https://caiji.putaozyw.net/inc/apijson_vod_dx.php",
+    "nsfw": true,
+    "type": 1,
+    "extra": {
+      "gfw": false
+    }
+  },
+  {
+    "id": "SenLinZiYuan",
+    "name": "森林资源",
+    "api": "https://slapibf.com/api.php/provide/vod/?ac=list",
+    "nsfw": true,
+    "type": 1,
+    "extra": {
+      "gfw": false
+    }
+  },
+  {
+    "id": "CaoLiuZongHeZiYuan",
+    "name": "草榴综合资源",
+    "api": "https://www.caoliuzyw.com/api.php/provide/vod/at/xml/",
+    "nsfw": true,
+    "type": 0,
+    "extra": {
+      "gfw": false
+    }
+  },
+  {
+    "id": "AIvin",
+    "name": "AIvin",
+    "api": "http://lbapiby.com/api.php/provide/vod/at/xml",
+    "nsfw": true,
+    "type": 0,
+    "extra": {
+      "gfw": false
+    }
+  },
+  {
+    "id": "9HaoZiYuan",
+    "name": "9号资源",
+    "api": "http://fhapi9.com/api.php/provide/vod/at/xml/",
+    "nsfw": true,
+    "type": 0,
+    "extra": {
+      "gfw": false
+    }
+  },
+  {
+    "id": "SiWaCaiJi",
+    "name": "丝袜采集",
+    "api": "https://www.siwazyw.tv/api.php/provide/vod/at/json/",
+    "nsfw": true,
+    "type": 1,
+    "extra": {
+      "gfw": false
+    }
+  }
+    ]
